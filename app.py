@@ -267,14 +267,10 @@ CUSTOM_CSS = """
     .diff-vuln-header { background: #1a0808; color: #ff8080; border: 1px solid #331111; }
     .diff-patch-header { background: #081a10; color: #80ffc0; border: 1px solid #113322; }
 
-    /* Guaranteed 60fps High-Visibility Vercel Neon Spinner Animation */
+    /* High-Visibility Vercel Spinner Animation */
     @keyframes vercelSpin {
-        0% {
-            transform: rotate(0deg);
-        }
-        100% {
-            transform: rotate(360deg);
-        }
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 
     [data-testid="stSpinner"],
@@ -283,32 +279,33 @@ CUSTOM_CSS = """
         align-items: center !important;
         gap: 12px !important;
         margin: 0.85rem 0 !important;
-        color: #ededed !important;
-        font-family: 'JetBrains Mono', monospace !important;
-        font-size: 0.84rem !important;
+        color: #0070f3 !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.88rem !important;
+        transform: none !important;
     }
 
-    /* Force rotation on all possible spinner icons, SVGs, divs, and glyphs */
+    /* Only rotate the icon/SVG — NEVER the text */
     [data-testid="stSpinner"] svg,
-    [data-testid="stSpinner"] i,
-    [data-testid="stSpinner"] [role="status"],
-    [data-testid="stSpinner"] > div:first-child,
-    .stSpinner svg,
-    .stSpinner i,
-    .stSpinner [role="status"],
-    .stSpinner > div:first-child {
+    .stSpinner svg {
         display: inline-block !important;
-        animation: vercelSpin 0.75s linear infinite !important;
+        animation: vercelSpin 0.85s linear infinite !important;
         transform-origin: center center !important;
         color: #0070f3 !important;
         fill: #0070f3 !important;
-        filter: drop-shadow(0 0 6px rgba(0, 112, 243, 0.75)) !important;
+        width: 1.25rem !important;
+        height: 1.25rem !important;
+        flex-shrink: 0 !important;
     }
 
-    [data-testid="stSpinner"] svg circle,
-    .stSpinner svg circle {
-        stroke: #0070f3 !important;
-        stroke-linecap: round !important;
+    [data-testid="stSpinner"] > div,
+    .stSpinner > div {
+        display: inline-block !important;
+        animation: none !important;
+        transform: none !important;
+        color: #0070f3 !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.88rem !important;
     }
 </style>
 """
@@ -653,7 +650,14 @@ if run_audit_clicked:
         status_container = st.container(border=True)
         with status_container:
             st.markdown("#### Autonomous Fleet Execution Telemetry")
-            p_box, s_box, m_box, t_box, r_box, v_box = st.columns(6)
+            col1, col2, col3, col4, col5, col6 = st.columns(6)
+            p_box = col1.empty()
+            s_box = col2.empty()
+            m_box = col3.empty()
+            t_box = col4.empty()
+            r_box = col5.empty()
+            v_box = col6.empty()
+
             p_box.info("SecOpsPlanner\n(Queued)")
             s_box.info("VulnScout\n(Queued)")
             m_box.info("RigorMetrics\n(Queued)")

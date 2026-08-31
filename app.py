@@ -225,15 +225,43 @@ CUSTOM_CSS = """
     .geist-dot-red { width: 6px; height: 6px; border-radius: 50%; background-color: #ff0055; flex-shrink: 0; }
 
     /* Telemetry Log Stream */
+    .telemetry-terminal {
+        background: #060606;
+        border: 1px solid #1c1c1c;
+        border-radius: 6px;
+        padding: 0.65rem;
+        max-height: 280px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-top: 0.5rem;
+    }
+    .telemetry-terminal::-webkit-scrollbar {
+        width: 6px;
+    }
+    .telemetry-terminal::-webkit-scrollbar-track {
+        background: #0c0c0c;
+        border-radius: 3px;
+    }
+    .telemetry-terminal::-webkit-scrollbar-thumb {
+        background: #333333;
+        border-radius: 3px;
+    }
+    .telemetry-terminal::-webkit-scrollbar-thumb:hover {
+        background: #555555;
+    }
+
     .log-row {
-        background: #0a0a0a;
+        background: #0e0e0e;
         border-left: 2px solid #333333;
         padding: 0.45rem 0.65rem;
         border-radius: 0 4px 4px 0;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0;
         font-family: 'JetBrains Mono', monospace;
         font-size: 0.78rem;
         color: #a1a1a1;
+        line-height: 1.4;
     }
     .log-verification { border-left-color: #50e3c2; }
     .log-warning { border-left-color: #f5a623; }
@@ -679,11 +707,11 @@ if run_audit_clicked:
                 "timestamp": timestamp
             })
 
-            recent_logs_html = "".join([
+            logs_html = "".join([
                 f'<div class="log-row"><span class="badge">{l["agent"]}</span> <span style="color:#666666; font-size:0.75rem;">[{l["timestamp"]}]</span> {html.escape(l["message"])}</div>'
-                for l in live_logs[-5:]
+                for l in live_logs
             ])
-            telemetry_log_placeholder.markdown(recent_logs_html, unsafe_allow_html=True)
+            telemetry_log_placeholder.markdown(f'<div class="telemetry-terminal">{logs_html}</div>', unsafe_allow_html=True)
 
             if agent == "SecOpsPlannerAgent":
                 p_box.success("SecOpsPlanner\n(Active ✓)")
@@ -729,6 +757,16 @@ result = st.session_state.get("secops_result")
 
 if result:
     st.divider()
+
+    # Full Audit Trail Expander
+    logs_to_show = st.session_state.get("live_logs_history") or result.get("logs") or []
+    if logs_to_show:
+        with st.expander("📡 Autonomous Fleet Execution Audit Trail (Full Event Log)", expanded=False):
+            trail_html = "".join([
+                f'<div class="log-row"><span class="badge">{l.get("agent", "AGENT")}</span> <span style="color:#666666; font-size:0.75rem;">[{l.get("timestamp", "")}]</span> {html.escape(l.get("message", ""))}</div>'
+                for l in logs_to_show
+            ])
+            st.markdown(f'<div class="telemetry-terminal" style="max-height:360px;">{trail_html}</div>', unsafe_allow_html=True)
 
     # Executive KPI Bar (Vercel Style)
     v_data = result.get("verification", {})

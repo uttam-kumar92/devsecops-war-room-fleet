@@ -65,7 +65,50 @@ def test_extract_code_patch():
     """
     assert "+ hardened()" in agents.extract_code_patch(md2)
 
-    # 3. Empty text
+    # 3. Report with large ASCII diagram in Section 2 and Python code in Section 4
+    md_with_diagram = """# 🛡️ Enterprise Threat Model & Security Audit Report
+
+## 1. Executive Summary
+Overview.
+
+## 2. STRIDE Threat Model & Attack Surface Decomposition
+```text
++-----------------------+           +-----------------------+
+|  Vulnerable Endpoint  | --------> |  Attacker Injection   |
++-----------------------+           +-----------------------+
+|  - SQL Injection      |           |  - Arbitrary Query    |
+|  - Command Injection  |           |  - System Shell Exec  |
++-----------------------+           +-----------------------+
+                                                |
+                                                v
+                                    +-----------------------+
+                                    |  Data Exfiltration    |
+                                    +-----------------------+
+```
+
+## 3. Vulnerability Deep-Dive & CVSS 3.1 Ratings
+CWE-89 Details.
+
+## 4. 🛠️ Autonomous Security Patch & Remediation Code (Ready-to-Deploy)
+```python
+import sqlite3
+
+def secure_query(user_id: int):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM users WHERE id = ?", (user_id,))
+    return cursor.fetchone()
+```
+
+## 5. Verification & Testing
+Passed.
+"""
+    patch = agents.extract_code_patch(md_with_diagram)
+    assert "def secure_query" in patch
+    assert "+-----------------------+" not in patch
+    assert "Vulnerable Endpoint" not in patch
+
+    # 4. Empty text
     assert agents.extract_code_patch("") == ""
 
 
@@ -259,7 +302,7 @@ USER 10001
 
 
 def test_secops_prompt_registry():
-    assert agents.SecOpsPromptRegistry.VERSION == "2.4.0"
+    assert agents.SecOpsPromptRegistry.VERSION == "2.5.0"
     planner_p = agents.SecOpsPromptRegistry.planner_prompt("print('hello')")
     assert "SecOpsPlannerAgent" in planner_p
     assert "print('hello')" in planner_p
@@ -276,3 +319,50 @@ def test_secops_prompt_registry():
 
     v_p = agents.SecOpsPromptRegistry.verification_prompt("input", "report")
     assert "DevSecOpsVerificationGate" in v_p
+
+
+def test_concurrent_fleet_execution(mock_genai_client, monkeypatch):
+    monkeypatch.setattr(agents, "_get_client", lambda api_key: mock_genai_client)
+    monkeypatch.setattr("tools.fetch_news_rss", lambda topic: "Mock Security Feed")
+    monkeypatch.setattr("tools.fetch_cve_threat_intel", lambda query: "Mock CVE Data")
+
+    executed_agents = []
+
+    def status_cb(agent, step_type, message, payload=None):
+        executed_agents.append(agent)
+
+    output = agents.run_fleet(
+        target_input="def vulnerable(): pass",
+        api_key="mock_key",
+        status_callback=status_cb
+    )
+
+    assert "VulnerabilityScoutAgent" in executed_agents
+    assert "RigorMetricsAgent" in executed_agents
+    assert "ThreatModelAgent" in executed_agents
+    assert "final_report" in output
+    assert "diff_stats" in output
+    assert output["diff_stats"]["original_line_count"] >= 1
+
+
+def test_concurrent_thread_exception_isolation(mock_genai_client, monkeypatch):
+    monkeypatch.setattr(agents, "_get_client", lambda api_key: mock_genai_client)
+
+    # Force scout to raise an exception in thread pool
+    def failing_scout_run(*args, **kwargs):
+        raise RuntimeError("Simulated thread crash in scout")
+
+    monkeypatch.setattr(agents.VulnerabilityScoutAgent, "run", failing_scout_run)
+
+    output = agents.run_fleet(
+        target_input="def test(): pass",
+        api_key="mock_key"
+    )
+
+    # Fleet orchestrator should catch the thread error gracefully and continue
+    assert "final_report" in output
+    assert "plan" in output
+    assert "verification" in output
+
+
+

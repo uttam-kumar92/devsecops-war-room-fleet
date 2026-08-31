@@ -1,0 +1,330 @@
+/* ============================================================================
+   Enterprise DevSecOps War-Room — Vercel / Geist Industrial Dark Theme
+   ============================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* Transparent Header - Keeps Sidebar Expand/Collapse Chevron Fully Functional */
+header[data-testid="stHeader"] {
+    background-color: transparent !important;
+    height: 2.8rem !important;
+    z-index: 100 !important;
+}
+
+/* High-Visibility Vercel Sidebar Toggle Button */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: #ffffff !important;
+    background: #0a0a0a !important;
+    border: 1px solid #222222 !important;
+    border-radius: 6px !important;
+    padding: 4px !important;
+    margin-left: 8px !important;
+    margin-top: 4px !important;
+    cursor: pointer !important;
+}
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="collapsedControl"] svg {
+    fill: #ededed !important;
+    color: #ededed !important;
+}
+[data-testid="stSidebarCollapsedControl"]:hover,
+[data-testid="collapsedControl"]:hover {
+    border-color: #444444 !important;
+    background-color: #141414 !important;
+}
+
+/* Hide distracting deploy button, decoration & menu */
+.stDeployButton { display: none !important; }
+#MainMenu { visibility: hidden !important; }
+footer { visibility: hidden !important; }
+div[data-testid="stDecoration"] { display: none !important; }
+div[data-testid="stStatusWidget"] { display: none !important; }
+
+/* Canvas & Global Typography */
+.stApp {
+    background-color: #000000;
+    color: #ededed;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    letter-spacing: -0.015em;
+}
+
+/* Top Breadcrumb & Status Pill */
+.geist-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #0a0a0a;
+    border: 1px solid #222222;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #888888;
+    margin-bottom: 0.75rem;
+}
+.geist-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #0070f3;
+    box-shadow: 0 0 6px #0070f3;
+}
+
+.hero-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 2.1rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: #ffffff;
+    margin-bottom: 0.35rem;
+    line-height: 1.15;
+}
+
+.hero-subtitle {
+    font-size: 0.95rem;
+    color: #888888;
+    margin-bottom: 1.25rem;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+/* Vercel Primary Action Button (Solid Crisp White) */
+div[data-testid="stButton"] > button[kind="primary"] {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: 0.92rem !important;
+    border: 1px solid #ffffff !important;
+    border-radius: 6px !important;
+    padding: 0.65rem 1.4rem !important;
+    letter-spacing: -0.01em !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    transition: opacity 0.15s ease, transform 0.15s ease !important;
+}
+div[data-testid="stButton"] > button[kind="primary"]:hover {
+    background-color: #eaeaea !important;
+    color: #000000 !important;
+    opacity: 0.95 !important;
+}
+
+/* Secondary & Download Buttons */
+div[data-testid="stDownloadButton"] > button,
+div[data-testid="stButton"] > button[kind="secondary"] {
+    background-color: #0a0a0a !important;
+    color: #ededed !important;
+    border: 1px solid #222222 !important;
+    border-radius: 6px !important;
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+    transition: border-color 0.15s ease, background-color 0.15s ease !important;
+}
+div[data-testid="stDownloadButton"] > button:hover,
+div[data-testid="stButton"] > button[kind="secondary"]:hover {
+    border-color: #444444 !important;
+    background-color: #111111 !important;
+    color: #ffffff !important;
+}
+
+/* Vercel Metric KPI Cards */
+.metric-card {
+    background: #0a0a0a;
+    border: 1px solid #222222;
+    border-radius: 6px;
+    padding: 0.85rem 0.75rem;
+    text-align: center;
+    transition: border-color 0.15s ease;
+}
+.metric-card:hover {
+    border-color: #444444;
+}
+.metric-val {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+}
+.metric-val-success { color: #50e3c2; }
+.metric-val-alert { color: #ff0055; }
+.metric-val-warn { color: #f5a623; }
+
+.metric-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: #888888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 0.25rem;
+}
+
+/* Vercel Topology Card in Sidebar */
+.topology-card {
+    background: #0a0a0a;
+    border: 1px solid #1f1f1f;
+    border-radius: 6px;
+    padding: 0.5rem 0.65rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.73rem;
+    color: #888888;
+}
+.topology-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.32rem 0;
+    border-bottom: 1px solid #141414;
+}
+.topology-item:last-child {
+    border-bottom: none;
+}
+.topology-item strong {
+    color: #ededed;
+    font-weight: 500;
+}
+
+/* Status dot indicators */
+.geist-dot-blue { width: 6px; height: 6px; border-radius: 50%; background-color: #0070f3; flex-shrink: 0; }
+.geist-dot-green { width: 6px; height: 6px; border-radius: 50%; background-color: #50e3c2; flex-shrink: 0; }
+.geist-dot-purple { width: 6px; height: 6px; border-radius: 50%; background-color: #7928ca; flex-shrink: 0; }
+.geist-dot-amber { width: 6px; height: 6px; border-radius: 50%; background-color: #f5a623; flex-shrink: 0; }
+.geist-dot-red { width: 6px; height: 6px; border-radius: 50%; background-color: #ff0055; flex-shrink: 0; }
+
+/* Telemetry Log Stream */
+.telemetry-terminal {
+    background: #060606;
+    border: 1px solid #1c1c1c;
+    border-radius: 6px;
+    padding: 0.65rem;
+    max-height: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 0.5rem;
+}
+.telemetry-terminal::-webkit-scrollbar {
+    width: 6px;
+}
+.telemetry-terminal::-webkit-scrollbar-track {
+    background: #0c0c0c;
+    border-radius: 3px;
+}
+.telemetry-terminal::-webkit-scrollbar-thumb {
+    background: #333333;
+    border-radius: 3px;
+}
+.telemetry-terminal::-webkit-scrollbar-thumb:hover {
+    background: #555555;
+}
+
+.log-row {
+    background: #0e0e0e;
+    border-left: 2px solid #333333;
+    padding: 0.45rem 0.65rem;
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: #a1a1a1;
+    line-height: 1.4;
+}
+.log-verification { border-left-color: #50e3c2; }
+.log-warning { border-left-color: #f5a623; }
+.log-plan { border-left-color: #7928ca; }
+
+/* Technical Badges */
+.badge {
+    display: inline-block;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    margin-right: 0.35rem;
+    background: #111111;
+    border: 1px solid #262626;
+    color: #ededed;
+}
+
+/* Diff Headers & Stat Badges */
+.diff-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.4rem 0.65rem;
+    border-radius: 6px 6px 0 0;
+    margin-bottom: 0;
+    letter-spacing: 0.5px;
+}
+.diff-vuln-header { background: #1a0808; color: #ff8080; border: 1px solid #331111; }
+.diff-patch-header { background: #081a10; color: #80ffc0; border: 1px solid #113322; }
+
+.diff-stat-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 0.75rem;
+}
+.diff-stat-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.diff-stat-added { background: rgba(80, 227, 194, 0.15); color: #50e3c2; border: 1px solid rgba(80, 227, 194, 0.3); }
+.diff-stat-deleted { background: rgba(255, 0, 85, 0.15); color: #ff0055; border: 1px solid rgba(255, 0, 85, 0.3); }
+.diff-stat-mod { background: rgba(0, 112, 243, 0.15); color: #0070f3; border: 1px solid rgba(0, 112, 243, 0.3); }
+.diff-stat-neutral { background: #111111; color: #888888; border: 1px solid #222222; }
+
+
+/* High-Visibility Vercel Spinner Animation */
+@keyframes vercelSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+[data-testid="stSpinner"],
+.stSpinner {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    margin: 0.85rem 0 !important;
+    color: #0070f3 !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.88rem !important;
+    transform: none !important;
+}
+
+/* Only rotate the icon/SVG — NEVER the text */
+[data-testid="stSpinner"] svg,
+.stSpinner svg {
+    display: inline-block !important;
+    animation: vercelSpin 0.85s linear infinite !important;
+    transform-origin: center center !important;
+    color: #0070f3 !important;
+    fill: #0070f3 !important;
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    flex-shrink: 0 !important;
+}
+
+[data-testid="stSpinner"] > div,
+.stSpinner > div {
+    display: inline-block !important;
+    animation: none !important;
+    transform: none !important;
+    color: #0070f3 !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.88rem !important;
+}

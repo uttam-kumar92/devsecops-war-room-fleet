@@ -6,6 +6,7 @@ import html
 import json
 import logging
 import math
+import os
 import re
 import threading
 import urllib.parse
@@ -71,8 +72,11 @@ SECURITY_LEXICON: Set[str] = {
     "terraform", "s3", "bucket", "helm"
 }
 
-# Regex Rules for Configuration, Dockerfile, Kubernetes, Terraform & Cloud Specs
-NON_PYTHON_RULES: List[Dict[str, Any]] = [
+# ============================================================================
+# Dynamic Security Rule Registry & Taxonomy Engine
+# ============================================================================
+
+DEFAULT_NON_PYTHON_RULES: List[Dict[str, Any]] = [
     {
         "id": "CWE-250",
         "name": "Execution with Unnecessary Privileges (Docker Root)",
@@ -117,8 +121,7 @@ NON_PYTHON_RULES: List[Dict[str, Any]] = [
     }
 ]
 
-# Dedicated High-Precision Known Secret Token Regexes
-KNOWN_SECRET_PATTERNS: List[Tuple[str, str, str]] = [
+DEFAULT_KNOWN_SECRET_PATTERNS: List[Tuple[str, str, str]] = [
     ("AWS Access Key", r"\b(AKIA[0-9A-Z]{16})\b", "Critical"),
     ("GitHub Personal Access Token", r"\b(ghp_[0-9a-zA-Z]{36}|github_pat_[0-9a-zA-Z_]{82})\b", "Critical"),
     ("Stripe Live Secret Key", r"\b(sk_live_[0-9a-zA-Z]{24,})\b", "Critical"),
@@ -128,6 +131,58 @@ KNOWN_SECRET_PATTERNS: List[Tuple[str, str, str]] = [
     ("Slack Token", r"\b(xox[baprs]-[0-9a-zA-Z]{10,48})\b", "Critical"),
     ("JSON Web Token (JWT)", r"\b(eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})\b", "High"),
 ]
+
+
+class SecurityRuleRegistry:
+    """
+    Extensible enterprise rule registry supporting dynamic loading from JSON/YAML
+    rule files with graceful fallback to built-in security heuristics.
+    """
+
+    def __init__(self, rule_file_path: Optional[str] = None):
+        self.rule_file_path = rule_file_path or os.path.join(os.path.dirname(__file__), "rules", "security_rules.json")
+        self._non_python_rules: List[Dict[str, Any]] = list(DEFAULT_NON_PYTHON_RULES)
+        self._known_secret_patterns: List[Tuple[str, str, str]] = list(DEFAULT_KNOWN_SECRET_PATTERNS)
+        self._load_rules()
+
+    def _load_rules(self) -> None:
+        """Loads rules from external JSON configuration if available."""
+        if os.path.exists(self.rule_file_path):
+            try:
+                with open(self.rule_file_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if "non_python_rules" in data and isinstance(data["non_python_rules"], list):
+                        self._non_python_rules = data["non_python_rules"]
+                    if "known_secret_patterns" in data and isinstance(data["known_secret_patterns"], list):
+                        patterns = []
+                        for item in data["known_secret_patterns"]:
+                            if isinstance(item, dict):
+                                patterns.append((item.get("name", "Secret"), item.get("pattern", ""), item.get("severity", "High")))
+                            elif isinstance(item, (list, tuple)) and len(item) == 3:
+                                patterns.append(tuple(item))
+                        if patterns:
+                            self._known_secret_patterns = patterns
+            except Exception as e:
+                logger.debug(f"SecurityRuleRegistry loaded with default rules due to: {e}")
+
+    def get_non_python_rules(self) -> List[Dict[str, Any]]:
+        return list(self._non_python_rules)
+
+    def get_known_secret_patterns(self) -> List[Tuple[str, str, str]]:
+        return list(self._known_secret_patterns)
+
+    def register_non_python_rule(self, rule: Dict[str, Any]) -> None:
+        self._non_python_rules.append(rule)
+
+    def register_secret_pattern(self, name: str, pattern: str, severity: str = "High") -> None:
+        self._known_secret_patterns.append((name, pattern, severity))
+
+
+# Global singleton rule registry instance & aliases for backward compatibility
+rule_registry = SecurityRuleRegistry()
+NON_PYTHON_RULES = rule_registry.get_non_python_rules()
+KNOWN_SECRET_PATTERNS = rule_registry.get_known_secret_patterns()
+
 
 
 def calculate_shannon_entropy(text: str) -> float:
@@ -149,10 +204,14 @@ def mask_secret(token: str) -> str:
 def scan_high_entropy_secrets(code: str, min_length: int = 14, entropy_threshold: float = 3.8) -> List[Dict[str, Any]]:
     """
     Scans code and configurations for high-entropy secrets (API keys, tokens, passwords)
-    and exact high-precision signature matches while filtering out common false positives.
+    and exact high-precision signature matches while filtering out common false positives
+    and tracking exact source code line numbers.
     """
     findings: List[Dict[str, Any]] = []
     seen_tokens: Set[str] = set()
+
+    if not code:
+        return findings
 
     # 1. High-Precision Signature Regex Scan
     for secret_type, pattern, severity in KNOWN_SECRET_PATTERNS:
@@ -161,19 +220,17 @@ def scan_high_entropy_secrets(code: str, min_length: int = 14, entropy_threshold
             if token not in seen_tokens:
                 seen_tokens.add(token)
                 ent = calculate_shannon_entropy(token)
+                line_no = code[:match.start()].count("\n") + 1
                 findings.append({
                     "type": secret_type,
                     "masked_token": mask_secret(token),
                     "entropy": round(ent, 2),
                     "length": len(token),
+                    "line": line_no,
                     "risk": severity
                 })
 
-    # 2. General Quoted Strings & Environment Assignments
-    quoted_strings = re.findall(r'["\']([a-zA-Z0-9_\-\.+=/!@#$%^&*]{12,})["\']', code)
-    unquoted_env = re.findall(r'(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD|AUTH|CREDENTIAL)\s*[:=]\s*([a-zA-Z0-9_\-\.+=/!@#$%^&*]{12,})', code, re.IGNORECASE)
-
-    all_tokens = set(quoted_strings + unquoted_env)
+    # 2. General Quoted Strings & Environment Assignments with Line Tracking
     ignored_prefixes = (
         "http://", "https://", "select ", "insert ", "update ", "delete ",
         "/app", "/usr", "/etc", "/var", "application/", "text/", "image/", "google-genai",
@@ -187,15 +244,15 @@ def scan_high_entropy_secrets(code: str, min_length: int = 14, entropy_threshold
         "password123456"
     }
 
-    for token in all_tokens:
+    # Quoted strings scan
+    for match in re.finditer(r'["\']([a-zA-Z0-9_\-\.+=/!@#$%^&*]{12,})["\']', code):
+        token = match.group(1)
         if token in seen_tokens:
             continue
-
+        line_no = code[:match.start()].count("\n") + 1
         lower_token = token.lower()
         if any(lower_token.startswith(p) for p in ignored_prefixes):
             continue
-
-        # Suppress CSS colors, standard UUIDs and hex fixtures
         if re.match(r'^[0-9a-fA-F]{32,64}$', token) and ("hash" in lower_token or "sha" in lower_token):
             continue
 
@@ -207,6 +264,7 @@ def scan_high_entropy_secrets(code: str, min_length: int = 14, entropy_threshold
                 "masked_token": mask_secret(token),
                 "entropy": round(ent, 2),
                 "length": len(token),
+                "line": line_no,
                 "risk": "High"
             })
             continue
@@ -220,6 +278,45 @@ def scan_high_entropy_secrets(code: str, min_length: int = 14, entropy_threshold
                     "masked_token": mask_secret(token),
                     "entropy": round(ent, 2),
                     "length": len(token),
+                    "line": line_no,
+                    "risk": "Critical" if ent > 4.5 else "High"
+                })
+
+    # Unquoted environment/config assignments scan
+    for match in re.finditer(r'(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD|AUTH|CREDENTIAL)\s*[:=]\s*([a-zA-Z0-9_\-\.+=/!@#$%^&*]{12,})', code, re.IGNORECASE):
+        token = match.group(1)
+        if token in seen_tokens:
+            continue
+        line_no = code[:match.start()].count("\n") + 1
+        lower_token = token.lower()
+        if any(lower_token.startswith(p) for p in ignored_prefixes):
+            continue
+        if re.match(r'^[0-9a-fA-F]{32,64}$', token) and ("hash" in lower_token or "sha" in lower_token):
+            continue
+
+        if token in known_demo_secrets:
+            seen_tokens.add(token)
+            ent = calculate_shannon_entropy(token)
+            findings.append({
+                "type": "High-Entropy Leaked Secret",
+                "masked_token": mask_secret(token),
+                "entropy": round(ent, 2),
+                "length": len(token),
+                "line": line_no,
+                "risk": "High"
+            })
+            continue
+
+        if len(token) >= min_length:
+            ent = calculate_shannon_entropy(token)
+            if ent >= entropy_threshold:
+                seen_tokens.add(token)
+                findings.append({
+                    "type": "High-Entropy Secret String",
+                    "masked_token": mask_secret(token),
+                    "entropy": round(ent, 2),
+                    "length": len(token),
+                    "line": line_no,
                     "risk": "Critical" if ent > 4.5 else "High"
                 })
 
@@ -228,17 +325,18 @@ def scan_high_entropy_secrets(code: str, min_length: int = 14, entropy_threshold
 
 class PythonASTSecurityScanner(ast.NodeVisitor):
     """
-    Production-grade Abstract Syntax Tree (AST) Security Scanner for Python.
+    Production-grade Abstract Syntax Tree (AST) Security Scanner for Python with Dataflow Taint Tracking.
     Detects dynamic SQL injection, OS command injection, SSRF, Path Traversal,
     Insecure Deserialization (Pickle/PyTorch/YAML), Dangerous Code Eval, Weak Cryptography,
     Insecure Temp Files, Disabled SSL Verification, Reflected XSS, XXE,
-    Unverified JWT Cryptographic Signatures, and Hardcoded Credentials.
+    Unverified JWT Cryptographic Signatures, Insecure Cookies, and Hardcoded Credentials.
     """
 
     def __init__(self, raw_lines: List[str]):
         self.raw_lines = raw_lines
         self.vulnerabilities: List[Dict[str, Any]] = []
         self.constant_vars: Set[str] = set()
+        self.tainted_vars: Set[str] = set()
 
     def _get_snippet(self, node: ast.AST) -> str:
         line_no = getattr(node, "lineno", 1)
@@ -246,8 +344,60 @@ class PythonASTSecurityScanner(ast.NodeVisitor):
             return self.raw_lines[line_no - 1].strip()
         return "<unknown snippet>"
 
+    def _get_node_name(self, node: ast.AST) -> str:
+        if isinstance(node, ast.Name):
+            return node.id
+        elif isinstance(node, ast.Attribute):
+            val = self._get_node_name(node.value)
+            return f"{val}.{node.attr}" if val else node.attr
+        return ""
+
+    def _is_untrusted_source(self, node: ast.AST) -> bool:
+        """Identifies untrusted sources (e.g. request.args.get, request.json, sys.argv, input)."""
+        if isinstance(node, ast.Call):
+            call_repr = self._get_node_name(node.func).lower()
+            if any(src in call_repr for src in ("request.", "req.", "input", "environ.get", "os.getenv")):
+                return True
+        elif isinstance(node, ast.Attribute):
+            attr_repr = self._get_node_name(node).lower()
+            if any(src in attr_repr for src in ("request.args", "request.json", "request.form", "request.values", "request.data", "request.query_params", "sys.argv")):
+                return True
+        elif isinstance(node, ast.Subscript):
+            val_repr = self._get_node_name(node.value).lower()
+            if any(src in val_repr for src in ("request.", "req.", "sys.argv", "os.environ", "environ")):
+                return True
+        return False
+
+    def _is_tainted(self, node: ast.AST) -> bool:
+        """Determines if an expression is derived from untrusted user input or contains tainted variables."""
+        if self._is_untrusted_source(node):
+            return True
+        if isinstance(node, ast.Name):
+            if node.id in self.constant_vars or node.id in ("None", "True", "False"):
+                return False
+            if node.id in self.tainted_vars:
+                return True
+        elif isinstance(node, ast.JoinedStr):
+            return any(self._is_tainted(v.value) if isinstance(v, ast.FormattedValue) else False for v in node.values)
+        elif isinstance(node, ast.BinOp):
+            return self._is_tainted(node.left) or self._is_tainted(node.right)
+        elif isinstance(node, ast.Call):
+            func_name = self._get_node_name(node.func)
+            if func_name in ("int", "float", "bool", "html.escape", "shlex.quote", "secrets.token_hex"):
+                return False
+            if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
+                if self._is_tainted(node.func.value):
+                    return True
+                return any(self._is_tainted(arg) for arg in node.args) or any(self._is_tainted(kw.value) for kw in node.keywords)
+            return any(self._is_tainted(arg) for arg in node.args)
+        elif isinstance(node, ast.Subscript):
+            return self._is_tainted(node.value)
+        return False
+
     def _is_dynamic_string(self, node: ast.AST) -> bool:
-        """Determines if an expression represents a dynamic or interpolated string."""
+        """Determines if an expression represents a dynamic, interpolated, or tainted string."""
+        if self._is_tainted(node):
+            return True
         if isinstance(node, ast.JoinedStr):
             return True
         if isinstance(node, ast.BinOp):
@@ -261,6 +411,29 @@ class PythonASTSecurityScanner(ast.NodeVisitor):
                 return False
             return True
         return False
+
+    def visit_FunctionDef(self, node: ast.FunctionDef):
+        # In web route handler functions, mark request parameters as tainted
+        is_route_handler = any(
+            isinstance(d, (ast.Call, ast.Attribute)) and any(r in self._get_node_name(d).lower() for r in ("route", "get", "post", "put", "delete", "api", "endpoint"))
+            for d in node.decorator_list
+        )
+        for arg in node.args.args:
+            if arg.arg not in ("self", "cls", "conn", "db", "session", "request"):
+                if is_route_handler:
+                    self.tainted_vars.add(arg.arg)
+        self.generic_visit(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
+        is_route_handler = any(
+            isinstance(d, (ast.Call, ast.Attribute)) and any(r in self._get_node_name(d).lower() for r in ("route", "get", "post", "put", "delete", "api", "endpoint"))
+            for d in node.decorator_list
+        )
+        for arg in node.args.args:
+            if arg.arg not in ("self", "cls", "conn", "db", "session", "request"):
+                if is_route_handler:
+                    self.tainted_vars.add(arg.arg)
+        self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call):
         func_name = ""
@@ -491,6 +664,31 @@ class PythonASTSecurityScanner(ast.NodeVisitor):
                     "snippet": self._get_snippet(node)
                 })
 
+        # 15. Insecure Cookie Flags (CWE-614 / CWE-1004)
+        if attr_name in ("set_cookie", "set_signed_cookie"):
+            missing_httponly = not any(
+                isinstance(kw.value, ast.Constant) and kw.value.value is True
+                for kw in node.keywords if kw.arg == "httponly"
+            )
+            missing_secure = not any(
+                isinstance(kw.value, ast.Constant) and kw.value.value is True
+                for kw in node.keywords if kw.arg == "secure"
+            )
+            if missing_httponly or missing_secure:
+                reasons = []
+                if missing_httponly:
+                    reasons.append("httponly=True (CWE-1004)")
+                if missing_secure:
+                    reasons.append("secure=True (CWE-614)")
+                self.vulnerabilities.append({
+                    "rule_id": "CWE-614",
+                    "name": "Sensitive Cookie Created Without HttpOnly/Secure Flags",
+                    "severity": "Medium",
+                    "description": f"Cookie set without mandatory security flags: {', '.join(reasons)}. Exposes session to XSS theft and MITM interception.",
+                    "line": getattr(node, "lineno", 1),
+                    "snippet": self._get_snippet(node)
+                })
+
         self.generic_visit(node)
 
     def visit_Assign(self, node: ast.Assign):
@@ -500,7 +698,13 @@ class PythonASTSecurityScanner(ast.NodeVisitor):
                 if isinstance(target, ast.Name):
                     self.constant_vars.add(target.id)
 
-        # Hardcoded Secret Detection (CWE-798)
+        # Propagate dataflow taint to assigned variables
+        if self._is_tainted(node.value) or self._is_dynamic_string(node.value):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id not in self.constant_vars:
+                    self.tainted_vars.add(target.id)
+
+        # Hardcoded Secret Detection (CWE-798) for untyped assignments
         for target in node.targets:
             if isinstance(target, ast.Name):
                 var_name = target.id.lower()
@@ -516,6 +720,44 @@ class PythonASTSecurityScanner(ast.NodeVisitor):
                                 "line": getattr(node, "lineno", 1),
                                 "snippet": self._get_snippet(node)
                             })
+
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign):
+        # Handle typed variable assignments (e.g. JWT_SECRET: str = "...")
+        if node.value and isinstance(node.value, ast.Constant):
+            if isinstance(node.target, ast.Name):
+                self.constant_vars.add(node.target.id)
+
+        # Propagate taint to typed variables
+        if node.value and (self._is_tainted(node.value) or self._is_dynamic_string(node.value)):
+            if isinstance(node.target, ast.Name) and node.target.id not in self.constant_vars:
+                self.tainted_vars.add(node.target.id)
+
+        # Typed secret detection (CWE-798)
+        if isinstance(node.target, ast.Name):
+            var_name = node.target.id.lower()
+            if any(secret_term in var_name for secret_term in ("secret", "token", "password", "api_key", "jwt", "private_key", "aws_key")):
+                if node.value and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                    secret_val = node.value.value
+                    if len(secret_val) >= 10:
+                        self.vulnerabilities.append({
+                            "rule_id": "CWE-798",
+                            "name": "Hardcoded Credential / Secret in Variable",
+                            "severity": "High",
+                            "description": f"Hardcoded credential assigned to typed variable '{node.target.id}'.",
+                            "line": getattr(node, "lineno", 1),
+                            "snippet": self._get_snippet(node)
+                        })
+        self.generic_visit(node)
+
+    def visit_AugAssign(self, node: ast.AugAssign):
+        # Propagate taint on augmented assignments (e.g. query += user_input)
+        if isinstance(node.target, ast.Name):
+            if self._is_tainted(node.value) or self._is_dynamic_string(node.value):
+                self.tainted_vars.add(node.target.id)
+                if node.target.id in self.constant_vars:
+                    self.constant_vars.discard(node.target.id)
         self.generic_visit(node)
 
 
@@ -580,6 +822,40 @@ def run_static_security_heuristics(code: str) -> Dict[str, Any]:
         "secrets_found": secrets,
         "static_risk_score": round(risk_score, 1),
         "threat_posture": "Critical Risk" if risk_score >= 60 else "Moderate Risk" if risk_score >= 25 else "Low Risk"
+    }
+
+
+def generate_diff_stats(original_code: str, patched_code: str) -> Dict[str, int]:
+    """
+    Computes fine-grained diff metrics (lines added, lines deleted, lines unchanged, total modifications)
+    for dashboard statistics.
+    """
+    orig_lines = original_code.splitlines() if original_code else []
+    patch_lines = patched_code.splitlines() if patched_code else []
+
+    matcher = difflib.SequenceMatcher(None, orig_lines, patch_lines)
+    added = 0
+    deleted = 0
+    unchanged = 0
+
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            unchanged += (i2 - i1)
+        elif tag == "replace":
+            deleted += (i2 - i1)
+            added += (j2 - j1)
+        elif tag == "delete":
+            deleted += (i2 - i1)
+        elif tag == "insert":
+            added += (j2 - j1)
+
+    return {
+        "lines_added": added,
+        "lines_deleted": deleted,
+        "lines_unchanged": unchanged,
+        "total_modifications": added + deleted,
+        "original_line_count": len(orig_lines),
+        "patched_line_count": len(patch_lines)
     }
 
 
@@ -662,7 +938,7 @@ def generate_sarif_report(heuristics_data: Dict[str, Any], filename: str = "app.
             "locations": [{
                 "physicalLocation": {
                     "artifactLocation": {"uri": filename},
-                    "region": {"startLine": 1}
+                    "region": {"startLine": secret.get("line", 1)}
                 }
             }]
         })
@@ -708,7 +984,7 @@ def fetch_osv_vulnerabilities(
     package_name: str,
     version: Optional[str] = None,
     ecosystem: str = "PyPI",
-    timeout: int = 4
+    timeout: int = 3
 ) -> List[Dict[str, Any]]:
     """
     Queries the OSV.dev (Open Source Vulnerabilities) REST API for structured CVE/GHSA records
@@ -743,7 +1019,7 @@ def fetch_osv_vulnerabilities(
     return []
 
 
-def fetch_cve_threat_intel(query: str, timeout: int = 5) -> str:
+def fetch_cve_threat_intel(query: str, timeout: int = 3) -> str:
     """
     Fetches live threat intelligence and vulnerability advisories using concurrent multi-source search (OSV.dev + DDG + Wiki).
     """
@@ -823,7 +1099,7 @@ def fetch_news_rss(topic: str) -> str:
     session = get_http_session()
 
     try:
-        response = session.get(rss_url, timeout=6)
+        response = session.get(rss_url, timeout=3.0)
         if response.status_code == 200:
             root = ET.fromstring(response.content)
             items = root.findall(".//item")
@@ -868,6 +1144,9 @@ def generate_security_dashboard_figures(
 
     if hasattr(stride_scores, "model_dump"):
         scores_dict = stride_scores.model_dump()
+        scores = {k.replace("_", " ").title(): v for k, v in scores_dict.items()}
+    elif hasattr(stride_scores, "dict"):
+        scores_dict = stride_scores.dict()
         scores = {k.replace("_", " ").title(): v for k, v in scores_dict.items()}
     elif isinstance(stride_scores, dict):
         scores = {k.replace("_", " ").title(): v for k, v in stride_scores.items()}

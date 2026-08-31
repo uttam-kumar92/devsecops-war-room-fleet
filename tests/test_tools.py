@@ -344,3 +344,136 @@ def test_fetch_osv_multi_ecosystem(mock_session_post):
 
     results_java = tools.fetch_osv_vulnerabilities("log4j")
     assert results_java[0]["ecosystem"] == "Maven"
+
+
+def test_dataflow_taint_propagation():
+    code = """
+from flask import Flask, request
+import sqlite3
+import os
+
+app = Flask(__name__)
+
+@app.route("/user")
+def get_user():
+    # Multi-hop taint propagation
+    raw_user = request.args.get("name")
+    sanitized_looking = raw_user
+    final_query = f"SELECT * FROM accounts WHERE owner = '{sanitized_looking}'"
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+    cursor.execute(final_query)
+
+    cmd = "echo " + raw_user
+    os.system(cmd)
+"""
+    heuristics = tools.run_static_security_heuristics(code)
+    vuln_ids = [v["rule_id"] for v in heuristics["vulnerabilities"]]
+
+    assert "CWE-89" in vuln_ids
+    assert "CWE-78" in vuln_ids
+
+
+def test_insecure_cookie_rules():
+    code = """
+from flask import Flask, make_response
+
+app = Flask(__name__)
+
+@app.route("/set")
+def set_auth():
+    resp = make_response("ok")
+    resp.set_cookie("session_id", "123456", secure=False)
+    return resp
+"""
+    heuristics = tools.run_static_security_heuristics(code)
+    vuln_ids = [v["rule_id"] for v in heuristics["vulnerabilities"]]
+
+    assert "CWE-614" in vuln_ids
+
+
+def test_security_rule_registry_loading_and_fallback():
+    registry = tools.SecurityRuleRegistry()
+    rules = registry.get_non_python_rules()
+    patterns = registry.get_known_secret_patterns()
+
+    assert len(rules) >= 6
+    assert len(patterns) >= 8
+    assert any(r["id"] == "CWE-250" for r in rules)
+    assert any("AWS" in p[0] for p in patterns)
+
+    # Custom rule registration
+    registry.register_non_python_rule({
+        "id": "CWE-CUSTOM",
+        "name": "Custom Enterprise Rule",
+        "pattern": r"custom_flaw",
+        "severity": "Critical",
+        "description": "Custom rule test."
+    })
+    assert any(r["id"] == "CWE-CUSTOM" for r in registry.get_non_python_rules())
+
+
+def test_generate_diff_stats():
+    orig = "line 1\nline 2\nline 3\n"
+    patched = "line 1\nline 2 modified\nline 3\nline 4 added\n"
+    stats = tools.generate_diff_stats(orig, patched)
+
+    assert stats["lines_added"] >= 1
+    assert stats["lines_unchanged"] >= 1
+    assert stats["total_modifications"] >= 1
+    assert stats["original_line_count"] == 3
+    assert stats["patched_line_count"] == 4
+
+
+def test_typed_secret_ann_assign_and_aug_assign_taint():
+    typed_code = """
+import os
+import sqlite3
+
+JWT_SECRET: str = "super_secret_jwt_key_987654321_production_do_not_leak"
+
+def run_query(req_input):
+    q = "SELECT * FROM items WHERE name = "
+    q += req_input
+    conn = sqlite3.connect("db.sqlite")
+    conn.execute(q)
+"""
+    heuristics = tools.run_static_security_heuristics(typed_code)
+    vulns = heuristics["vulnerabilities"]
+    rule_ids = [v["rule_id"] for v in vulns]
+
+    assert "CWE-798" in rule_ids
+    assert "CWE-89" in rule_ids
+
+
+def test_secret_line_number_tracking_in_sarif():
+    code_with_multiline_secrets = """# Comment line 1
+# Comment line 2
+# Comment line 3
+AWS_KEY = "AKIAIOSFODNN7EXAMPLE987654321"
+"""
+    secrets = tools.scan_high_entropy_secrets(code_with_multiline_secrets)
+    assert len(secrets) >= 1
+    assert secrets[0]["line"] == 4
+
+    sarif = tools.generate_sarif_report({"vulnerabilities": [], "secrets_found": secrets})
+    secret_results = [r for r in sarif["runs"][0]["results"] if r["ruleId"] == "CWE-798"]
+    assert len(secret_results) >= 1
+    assert secret_results[0]["locations"][0]["physicalLocation"]["region"]["startLine"] == 4
+
+
+def test_generate_figures_with_dict_fallback():
+    raw_dict_scores = {
+        "spoofing": 8.0,
+        "tampering": 9.0,
+        "repudiation": 6.0,
+        "information_disclosure": 8.5,
+        "denial_of_service": 7.0,
+        "elevation_of_privilege": 9.0
+    }
+    figs = tools.generate_security_dashboard_figures(raw_dict_scores, cvss_score=9.1)
+    assert figs["stride_radar"] is not None
+    assert figs["cvss_gauge"] is not None
+
+
+

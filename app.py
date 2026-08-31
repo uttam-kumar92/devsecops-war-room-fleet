@@ -28,317 +28,22 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Vercel / Geist / Tailwind v4 Industrial Dark Theme CSS
-CUSTOM_CSS = """
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+def load_css() -> str:
+    """Loads custom Vercel / Geist CSS stylesheet from assets/style.css with graceful fallback."""
+    css_path = os.path.join(os.path.dirname(__file__), "assets", "style.css")
+    if os.path.exists(css_path):
+        try:
+            with open(css_path, "r", encoding="utf-8") as f:
+                return f"<style>\n{f.read()}\n</style>"
+        except Exception:
+            pass
+    return """<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    .stApp { background-color: #000000; color: #ededed; font-family: 'Inter', sans-serif; }
+    </style>"""
 
-    /* Transparent Header - Keeps Sidebar Expand/Collapse Chevron Fully Functional */
-    header[data-testid="stHeader"] {
-        background-color: transparent !important;
-        height: 2.8rem !important;
-        z-index: 100 !important;
-    }
 
-    /* High-Visibility Vercel Sidebar Toggle Button */
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="collapsedControl"] {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        color: #ffffff !important;
-        background: #0a0a0a !important;
-        border: 1px solid #222222 !important;
-        border-radius: 6px !important;
-        padding: 4px !important;
-        margin-left: 8px !important;
-        margin-top: 4px !important;
-        cursor: pointer !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] svg,
-    [data-testid="collapsedControl"] svg {
-        fill: #ededed !important;
-        color: #ededed !important;
-    }
-    [data-testid="stSidebarCollapsedControl"]:hover,
-    [data-testid="collapsedControl"]:hover {
-        border-color: #444444 !important;
-        background-color: #141414 !important;
-    }
-
-    /* Hide distracting deploy button, decoration & menu */
-    .stDeployButton { display: none !important; }
-    #MainMenu { visibility: hidden !important; }
-    footer { visibility: hidden !important; }
-    div[data-testid="stDecoration"] { display: none !important; }
-    div[data-testid="stStatusWidget"] { display: none !important; }
-
-    /* Canvas & Global Typography */
-    .stApp {
-        background-color: #000000;
-        color: #ededed;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        letter-spacing: -0.015em;
-    }
-
-    /* Top Breadcrumb & Status Pill */
-    .geist-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        background: #0a0a0a;
-        border: 1px solid #222222;
-        padding: 4px 12px;
-        border-radius: 9999px;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.72rem;
-        font-weight: 500;
-        color: #888888;
-        margin-bottom: 0.75rem;
-    }
-    .geist-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background-color: #0070f3;
-        box-shadow: 0 0 6px #0070f3;
-    }
-
-    .hero-title {
-        font-family: 'Inter', sans-serif;
-        font-size: 2.1rem;
-        font-weight: 700;
-        letter-spacing: -0.04em;
-        color: #ffffff;
-        margin-bottom: 0.35rem;
-        line-height: 1.15;
-    }
-
-    .hero-subtitle {
-        font-size: 0.95rem;
-        color: #888888;
-        margin-bottom: 1.25rem;
-        font-weight: 400;
-        line-height: 1.5;
-    }
-
-    /* Vercel Primary Action Button (Solid Crisp White) */
-    div[data-testid="stButton"] > button[kind="primary"] {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-        font-family: 'Inter', sans-serif !important;
-        font-weight: 600 !important;
-        font-size: 0.92rem !important;
-        border: 1px solid #ffffff !important;
-        border-radius: 6px !important;
-        padding: 0.65rem 1.4rem !important;
-        letter-spacing: -0.01em !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-        transition: opacity 0.15s ease, transform 0.15s ease !important;
-    }
-    div[data-testid="stButton"] > button[kind="primary"]:hover {
-        background-color: #eaeaea !important;
-        color: #000000 !important;
-        opacity: 0.95 !important;
-    }
-
-    /* Secondary & Download Buttons */
-    div[data-testid="stDownloadButton"] > button,
-    div[data-testid="stButton"] > button[kind="secondary"] {
-        background-color: #0a0a0a !important;
-        color: #ededed !important;
-        border: 1px solid #222222 !important;
-        border-radius: 6px !important;
-        font-size: 0.82rem !important;
-        font-weight: 500 !important;
-        transition: border-color 0.15s ease, background-color 0.15s ease !important;
-    }
-    div[data-testid="stDownloadButton"] > button:hover,
-    div[data-testid="stButton"] > button[kind="secondary"]:hover {
-        border-color: #444444 !important;
-        background-color: #111111 !important;
-        color: #ffffff !important;
-    }
-
-    /* Vercel Metric KPI Cards */
-    .metric-card {
-        background: #0a0a0a;
-        border: 1px solid #222222;
-        border-radius: 6px;
-        padding: 0.85rem 0.75rem;
-        text-align: center;
-        transition: border-color 0.15s ease;
-    }
-    .metric-card:hover {
-        border-color: #444444;
-    }
-    .metric-val {
-        font-family: 'Inter', sans-serif;
-        font-size: 1.55rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        color: #ffffff;
-    }
-    .metric-val-success { color: #50e3c2; }
-    .metric-val-alert { color: #ff0055; }
-    .metric-val-warn { color: #f5a623; }
-
-    .metric-label {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.68rem;
-        color: #888888;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-top: 0.25rem;
-    }
-
-    /* Vercel Topology Card in Sidebar */
-    .topology-card {
-        background: #0a0a0a;
-        border: 1px solid #1f1f1f;
-        border-radius: 6px;
-        padding: 0.5rem 0.65rem;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.73rem;
-        color: #888888;
-    }
-    .topology-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0.32rem 0;
-        border-bottom: 1px solid #141414;
-    }
-    .topology-item:last-child {
-        border-bottom: none;
-    }
-    .topology-item strong {
-        color: #ededed;
-        font-weight: 500;
-    }
-
-    /* Status dot indicators */
-    .geist-dot-blue { width: 6px; height: 6px; border-radius: 50%; background-color: #0070f3; flex-shrink: 0; }
-    .geist-dot-green { width: 6px; height: 6px; border-radius: 50%; background-color: #50e3c2; flex-shrink: 0; }
-    .geist-dot-purple { width: 6px; height: 6px; border-radius: 50%; background-color: #7928ca; flex-shrink: 0; }
-    .geist-dot-amber { width: 6px; height: 6px; border-radius: 50%; background-color: #f5a623; flex-shrink: 0; }
-    .geist-dot-red { width: 6px; height: 6px; border-radius: 50%; background-color: #ff0055; flex-shrink: 0; }
-
-    /* Telemetry Log Stream */
-    .telemetry-terminal {
-        background: #060606;
-        border: 1px solid #1c1c1c;
-        border-radius: 6px;
-        padding: 0.65rem;
-        max-height: 280px;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        margin-top: 0.5rem;
-    }
-    .telemetry-terminal::-webkit-scrollbar {
-        width: 6px;
-    }
-    .telemetry-terminal::-webkit-scrollbar-track {
-        background: #0c0c0c;
-        border-radius: 3px;
-    }
-    .telemetry-terminal::-webkit-scrollbar-thumb {
-        background: #333333;
-        border-radius: 3px;
-    }
-    .telemetry-terminal::-webkit-scrollbar-thumb:hover {
-        background: #555555;
-    }
-
-    .log-row {
-        background: #0e0e0e;
-        border-left: 2px solid #333333;
-        padding: 0.45rem 0.65rem;
-        border-radius: 0 4px 4px 0;
-        margin-bottom: 0;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.78rem;
-        color: #a1a1a1;
-        line-height: 1.4;
-    }
-    .log-verification { border-left-color: #50e3c2; }
-    .log-warning { border-left-color: #f5a623; }
-    .log-plan { border-left-color: #7928ca; }
-
-    /* Technical Badges */
-    .badge {
-        display: inline-block;
-        padding: 0.15rem 0.45rem;
-        border-radius: 4px;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.68rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        margin-right: 0.35rem;
-        background: #111111;
-        border: 1px solid #262626;
-        color: #ededed;
-    }
-
-    /* Diff Headers */
-    .diff-header {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.75rem;
-        font-weight: 500;
-        padding: 0.4rem 0.65rem;
-        border-radius: 6px 6px 0 0;
-        margin-bottom: 0;
-        letter-spacing: 0.5px;
-    }
-    .diff-vuln-header { background: #1a0808; color: #ff8080; border: 1px solid #331111; }
-    .diff-patch-header { background: #081a10; color: #80ffc0; border: 1px solid #113322; }
-
-    /* High-Visibility Vercel Spinner Animation */
-    @keyframes vercelSpin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    [data-testid="stSpinner"],
-    .stSpinner {
-        display: flex !important;
-        align-items: center !important;
-        gap: 12px !important;
-        margin: 0.85rem 0 !important;
-        color: #0070f3 !important;
-        font-family: 'Inter', sans-serif !important;
-        font-size: 0.88rem !important;
-        transform: none !important;
-    }
-
-    /* Only rotate the icon/SVG — NEVER the text */
-    [data-testid="stSpinner"] svg,
-    .stSpinner svg {
-        display: inline-block !important;
-        animation: vercelSpin 0.85s linear infinite !important;
-        transform-origin: center center !important;
-        color: #0070f3 !important;
-        fill: #0070f3 !important;
-        width: 1.25rem !important;
-        height: 1.25rem !important;
-        flex-shrink: 0 !important;
-    }
-
-    [data-testid="stSpinner"] > div,
-    .stSpinner > div {
-        display: inline-block !important;
-        animation: none !important;
-        transform: none !important;
-        color: #0070f3 !important;
-        font-family: 'Inter', sans-serif !important;
-        font-size: 0.88rem !important;
-    }
-</style>
-"""
-
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+st.markdown(load_css(), unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -425,7 +130,7 @@ with st.sidebar:
 # ============================================================================
 # Main Header & Security Preset Scenarios
 # ============================================================================
-st.markdown('<div class="geist-pill"><span class="geist-dot"></span>ENGINE BUILD v2.4.0-STABLE &bull; GEMINI 3.7 HYBRID CORE</div>', unsafe_allow_html=True)
+st.markdown('<div class="geist-pill"><span class="geist-dot"></span>ENGINE BUILD v2.5.0-ENTERPRISE &bull; GEMINI 3.7 CONCURRENT CORE</div>', unsafe_allow_html=True)
 st.markdown('<div class="hero-title">Enterprise DevSecOps Threat Modeling War-Room</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="hero-subtitle">Autonomous STRIDE threat modeling, live CVE intelligence, Python AST static analysis, adversarial Red-Team exploit simulation, and automated code remediation powered by <code>google-genai</code>.</div>',
@@ -611,18 +316,29 @@ resource "aws_security_group" "open_ssh" {
 
 # Vercel-Style Scenario Pill Selector
 st.markdown("##### Target Scenario & Code Ingestion")
-selected_tab = st.segmented_control(
-    "Select Target Scenario",
-    options=[
-        "Flask Microservice (SQLi & RCE & SSRF)",
-        "Dockerfile (Root & AWS Key)",
-        "Data Pipeline (YAML, eval & Traversal)",
-        "Kubernetes & Cloud (Privileged & Open Ingress)",
-        "File Upload / Custom"
-    ],
-    default="Flask Microservice (SQLi & RCE & SSRF)",
-    label_visibility="collapsed"
-)
+scenario_options = [
+    "Flask Microservice (SQLi & RCE & SSRF)",
+    "Dockerfile (Root & AWS Key)",
+    "Data Pipeline (YAML, eval & Traversal)",
+    "Kubernetes & Cloud (Privileged & Open Ingress)",
+    "File Upload / Custom"
+]
+
+if hasattr(st, "segmented_control"):
+    selected_tab = st.segmented_control(
+        "Select Target Scenario",
+        options=scenario_options,
+        default="Flask Microservice (SQLi & RCE & SSRF)",
+        label_visibility="collapsed"
+    )
+else:
+    selected_tab = st.radio(
+        "Select Target Scenario",
+        options=scenario_options,
+        index=0,
+        horizontal=True,
+        label_visibility="collapsed"
+    )
 
 default_code = PRESET_FLASK
 if "Dockerfile" in selected_tab:
@@ -723,8 +439,12 @@ if run_audit_clicked:
                 m_box.success("RigorMetrics\n(Active ✓)")
                 progress_bar.progress(55, text="RigorMetrics: Running Python AST analysis & Shannon secret entropy...")
             elif agent == "ThreatModelAgent":
-                t_box.success("ThreatModel\n(Active ✓)")
-                progress_bar.progress(75, text="ThreatModeler: Generating hardened patch code & STRIDE whitepaper...")
+                if "Hardening" in message or "regenerating" in message:
+                    t_box.info("ThreatModel\n(Looping ⚡)")
+                    progress_bar.progress(92, text="ThreatModeler: Resolving Red-Team bypasses & hardening patch...")
+                else:
+                    t_box.success("ThreatModel\n(Active ✓)")
+                    progress_bar.progress(75, text="ThreatModeler: Generating hardened patch code & STRIDE whitepaper...")
             elif agent == "RedTeamExploitAuditor":
                 r_box.success("RedTeam\n(Active ✓)")
                 progress_bar.progress(88, text="RedTeam: Simulating exploit payloads & adversarial bypasses...")
@@ -742,6 +462,14 @@ if run_audit_clicked:
                 status_callback=ui_status_callback,
                 max_revisions=max_revisions
             )
+            # Ensure all telemetry agent boxes reflect completion on the main thread
+            p_box.success("SecOpsPlanner\n(Active ✓)")
+            s_box.success("VulnScout\n(Active ✓)")
+            m_box.success("RigorMetrics\n(Active ✓)")
+            t_box.success("ThreatModel\n(Active ✓)")
+            r_box.success("RedTeam\n(Active ✓)")
+            v_box.success("VerifierGate\n(Active ✓)")
+
             st.session_state["secops_result"] = result
             st.session_state["live_logs_history"] = live_logs
             progress_bar.progress(100, text="Threat Model & Code Remediation Complete!")
@@ -852,6 +580,16 @@ if result:
                 code_lang = "yaml"
                 target_filename = "manifest.yaml"
 
+        diff_stats = result.get("diff_stats") or tools.generate_diff_stats(orig_code, patch_text)
+        st.markdown(f"""
+        <div class="diff-stat-container">
+            <span class="diff-stat-badge diff-stat-added">+{diff_stats.get('lines_added', 0)} Lines Added</span>
+            <span class="diff-stat-badge diff-stat-deleted">-{diff_stats.get('lines_deleted', 0)} Lines Removed</span>
+            <span class="diff-stat-badge diff-stat-mod">⚡ {diff_stats.get('total_modifications', 0)} Modifications</span>
+            <span class="diff-stat-badge diff-stat-neutral">📊 {diff_stats.get('original_line_count', 0)} → {diff_stats.get('patched_line_count', 0)} Lines</span>
+        </div>
+        """, unsafe_allow_html=True)
+
         if diff_layout == "Side-by-Side (Split)":
             col_orig, col_patched = st.columns(2)
             with col_orig:
@@ -954,6 +692,28 @@ if result:
         if not vulns and not secrets:
             st.success("No AST pattern violations or high-entropy secrets detected.")
 
+        with st.expander("⚙️ Active Security Rules Engine & Extensible Taxonomy Explorer", expanded=False):
+            active_rules = tools.rule_registry.get_non_python_rules()
+            active_patterns = tools.rule_registry.get_known_secret_patterns()
+            st.markdown(f"**Loaded Rules:** `{len(active_rules)} configuration rules` | `{len(active_patterns)} high-precision secret patterns`")
+            st.caption("Configured via `rules/security_rules.json` with dynamic runtime evaluation.")
+            
+            rule_tab1, rule_tab2 = st.tabs(["Infrastructure & Config Rules", "Cryptographic Secret Patterns"])
+            with rule_tab1:
+                st.dataframe(
+                    pd.DataFrame(active_rules)[["id", "name", "severity", "description"]],
+                    use_container_width=True,
+                    hide_index=True
+                )
+            with rule_tab2:
+                df_pat = pd.DataFrame(active_patterns, columns=["Secret Type", "Regex Pattern", "Severity"])
+                st.dataframe(
+                    df_pat[["Secret Type", "Severity"]],
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+
     # TAB 5: Live CVE Grounding
     with tab_grounding:
         st.markdown("### Live CVE & NVD Threat Intelligence Citations")
@@ -1002,7 +762,30 @@ if result:
         st.markdown("### OASIS SARIF v2.1.0 Static Analysis Output")
         st.caption("Standardized Static Analysis Results Interchange Format for GitHub Security and GitLab SAST.")
         sarif_data = result.get("sarif_report", tools.generate_sarif_report(heuristics))
-        st.json(sarif_data, expanded=False)
+
+        runs = sarif_data.get("runs", [{}])[0]
+        rules_count = len(runs.get("tool", {}).get("driver", {}).get("rules", []))
+        results_count = len(runs.get("results", []))
+
+        sm_col1, sm_col2, sm_col3 = st.columns(3)
+        with sm_col1:
+            st.metric("SARIF Schema", "v2.1.0 Standard")
+        with sm_col2:
+            st.metric("Rules Triggered", f"{rules_count} Rules")
+        with sm_col3:
+            st.metric("Finding Annotations", f"{results_count} Locations", delta=f"{results_count} findings", delta_color="inverse")
+
+        view_mode = st.radio(
+            "SARIF Display Format:",
+            ["💻 Full JSON Code View (Expanded & Ready to Copy)", "🌳 Interactive Tree Explorer"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+
+        if "Full JSON" in view_mode:
+            st.code(json.dumps(sarif_data, indent=2), language="json")
+        else:
+            st.json(sarif_data, expanded=True)
 
         st.download_button(
             label="Download SARIF v2.1.0 Report (.sarif)",

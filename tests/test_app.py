@@ -19,3 +19,12 @@ def test_app_initial_render():
 
     # Verify scenario selector has default preset loaded
     assert "Flask" in at.text_area[0].value or "SQL" in at.text_area[0].value
+
+
+def test_load_css_function():
+    from app import load_css
+    css_content = load_css()
+    assert "<style>" in css_content
+    assert "</style>" in css_content
+    assert "Inter" in css_content or "stApp" in css_content
+

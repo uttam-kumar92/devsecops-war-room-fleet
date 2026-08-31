@@ -1,0 +1,89 @@
+{
+  "version": "2.5.0",
+  "non_python_rules": [
+    {
+      "id": "CWE-250",
+      "name": "Execution with Unnecessary Privileges (Docker Root)",
+      "pattern": "(?:\\bUSER\\s+(?:root|0)\\b|FROM\\s+[\\w\\-\\.\\/:]+(?:(?!USER)[\\s\\S])*?\\b(?:CMD|ENTRYPOINT)\\b)",
+      "severity": "Medium",
+      "description": "Container executes under default root user without dropping privileges."
+    },
+    {
+      "id": "CWE-798",
+      "name": "Hardcoded Cloud Credential in Configuration",
+      "pattern": "(?:AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|SECRET_KEY|API_KEY)\\s*[:=]\\s*[\"']?([a-zA-Z0-9_\\-\\.\\+=/!@#$%^&*]{12,})[\"']?",
+      "severity": "Critical",
+      "description": "Hardcoded cloud credential or secret key detected in configuration file."
+    },
+    {
+      "id": "CWE-22",
+      "name": "Potential Directory / Path Traversal in Config",
+      "pattern": "(?:\\.\\./|\\.\\.\\\\){2,}",
+      "severity": "High",
+      "description": "Relative directory traversal sequence ('../') detected in configuration."
+    },
+    {
+      "id": "CWE-269",
+      "name": "Improper Privilege Management (Kubernetes Security Context)",
+      "pattern": "(?:privileged:\\s*true|allowPrivilegeEscalation:\\s*true|hostPID:\\s*true|hostNetwork:\\s*true|runAsUser:\\s*0\\b)",
+      "severity": "Critical",
+      "description": "Kubernetes manifest grants container host namespace or root privilege escalation."
+    },
+    {
+      "id": "CWE-284",
+      "name": "Improper Access Control (Unrestricted Cloud Ingress / Public Bucket)",
+      "pattern": "(?:cidr_blocks\\s*=\\s*\\[\\s*\"0\\.0\\.0\\.0/0\"\\s*\\]|publicly_accessible\\s*=\\s*true|acl\\s*=\\s*\"public-read\")",
+      "severity": "High",
+      "description": "Cloud security group or storage resource configured with unrestricted public exposure."
+    },
+    {
+      "id": "CWE-312",
+      "name": "Cleartext Storage of Sensitive Information (Private Key in Config)",
+      "pattern": "-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----",
+      "severity": "Critical",
+      "description": "Unencrypted private key detected directly inside configuration or deployment template."
+    }
+  ],
+  "known_secret_patterns": [
+    {
+      "name": "AWS Access Key",
+      "pattern": "\\b(AKIA[0-9A-Z]{16})\\b",
+      "severity": "Critical"
+    },
+    {
+      "name": "GitHub Personal Access Token",
+      "pattern": "\\b(ghp_[0-9a-zA-Z]{36}|github_pat_[0-9a-zA-Z_]{82})\\b",
+      "severity": "Critical"
+    },
+    {
+      "name": "Stripe Live Secret Key",
+      "pattern": "\\b(sk_live_[0-9a-zA-Z]{24,})\\b",
+      "severity": "Critical"
+    },
+    {
+      "name": "OpenAI API Key",
+      "pattern": "\\b(sk-[a-zA-Z0-9]{20,})\\b",
+      "severity": "Critical"
+    },
+    {
+      "name": "Anthropic API Key",
+      "pattern": "\\b(sk-ant-[a-zA-Z0-9_\\-]{20,})\\b",
+      "severity": "Critical"
+    },
+    {
+      "name": "Google API Key",
+      "pattern": "\\b(AIza[0-9A-Za-z_-]{35,40})\\b",
+      "severity": "Critical"
+    },
+    {
+      "name": "Slack Token",
+      "pattern": "\\b(xox[baprs]-[0-9a-zA-Z]{10,48})\\b",
+      "severity": "Critical"
+    },
+    {
+      "name": "JSON Web Token (JWT)",
+      "pattern": "\\b(eyJ[A-Za-z0-9_-]{10,}\\.eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,})\\b",
+      "severity": "High"
+    }
+  ]
+}

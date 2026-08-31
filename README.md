@@ -5,28 +5,28 @@
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-An enterprise-grade, closed-loop **Autonomous DevSecOps & Security War-Room Platform** powered by the **`google-genai`** SDK, Gemini 3.7 Thinking Budget reasoning, real-time Google Search Grounding for live CVEs/NVD advisories, Shannon entropy secret detection, Python AST static code analysis across 14 CWE categories, OASIS SARIF v2.1.0 reporting, STRIDE threat modeling, adversarial red-team exploit simulations, and automated code remediation patches.
+An enterprise-grade, closed-loop **Autonomous DevSecOps & Security War-Room Platform** powered by the **`google-genai`** SDK, Gemini 3.7 Thinking Budget reasoning, real-time Google Search Grounding for live CVEs/NVD advisories, Shannon entropy secret detection, Python AST static code analysis with Dataflow Taint Tracking across 15 CWE categories, OASIS SARIF v2.1.0 reporting, STRIDE threat modeling, adversarial red-team exploit simulations, and automated code remediation patches.
 
 ---
 
 ## 🏛️ System Architecture & 6-Agent DevSecOps Topology
 
-The fleet orchestrates an autonomous, closed-loop DevSecOps war-room where each sub-agent executes a specialized security function:
+The fleet orchestrates an autonomous, closed-loop DevSecOps war-room where each sub-agent executes a specialized security function with concurrent threat ingestion:
 
 ```mermaid
 graph TD
     Input[Code / Dockerfile / K8s / Architecture Ingestion] --> Coordinator[DevSecOps Fleet Coordinator]
     
-    subgraph "Phase 1: Threat Decomposition & Intelligence"
+    subgraph "Phase 1: Threat Decomposition & Scoping"
         Coordinator -->|1. Threat Modeling Plan| Planner[Agent 1: SecOpsPlannerAgent]
-        Planner -->|Attack Vectors & Scope| Scout[Agent 2: VulnerabilityScoutAgent]
-        Scout -->|Live CVE / NVD Grounding| Intel[(Live Threat Intelligence Dossier)]
     end
 
-    subgraph "Phase 2: Static Analysis & Entropy Scanner"
-        Intel --> StaticAnalyzer[Agent 3: RigorMetricsAgent]
-        Input --> StaticAnalyzer
-        StaticAnalyzer -->|High-Entropy Secrets & 14 CWE Sinks| Metrics[Static Analysis & Risk Matrix]
+    subgraph "Phase 2: Concurrent Intelligence & AST Static Analysis"
+        Planner -->|Concurrent Dispatch| Scout[Agent 2: VulnerabilityScoutAgent]
+        Planner -->|Concurrent Dispatch| StaticAnalyzer[Agent 3: RigorMetricsAgent]
+        
+        Scout -->|Live CVE / NVD Grounding| Intel[(Live Threat Intelligence Dossier)]
+        StaticAnalyzer -->|Taint Flow & Entropy Scanner| Metrics[Static Analysis & 15-CWE Risk Matrix]
     end
 
     subgraph "Phase 3: Threat Modeling, Auto-Patching & Verification"
@@ -53,8 +53,8 @@ graph TD
 | Agent | Responsibility | Core Capabilities & Tooling |
 | :--- | :--- | :--- |
 | **1. SecOpsPlannerAgent** | Threat Decomposition & Scope Architect | Generates structured Pydantic `SecurityAuditPlan` mapping STRIDE vectors and CWE attack surfaces. |
-| **2. VulnerabilityScoutAgent** | Real-Time Threat Intel & CVE Grounding | Native `types.GoogleSearch()` grounding querying NVD, OSV, and Google Security advisories. |
-| **3. RigorMetricsAgent** | Python AST Analysis & Shannon Secret Scanner | Native Python `ast.NodeVisitor` engine detecting 14 CWE flaw categories and Shannon entropy ($H(X)$) leaks. |
+| **2. VulnerabilityScoutAgent** | Real-Time Threat Intel & CVE Grounding | Native `types.GoogleSearch()` grounding querying NVD, OSV (PyPI, npm, Go, Rust, Java), and Google Security advisories. |
+| **3. RigorMetricsAgent** | Python AST Analysis & Shannon Secret Scanner | Native Python `ast.NodeVisitor` engine with **Dataflow Taint Tracking across 15 CWE categories** and Shannon entropy ($H(X)$) leaks. |
 | **4. ThreatModelAgent** | Principal Security Architect & Auto-Patcher | Synthesizes full STRIDE threat models, authoring **ready-to-deploy remediated code patches and unified Git diffs**. |
 | **5. RedTeamExploitAuditor** | Adversarial Hacker & Bypass Auditor | Simulates exploit payloads against proposed code patches to test for bypasses and secondary attack surfaces. |
 | **6. DevSecOpsVerificationGate** | Quality Gatekeeper & CVSS Validator | Rigorous Pydantic quality gate checking CVSS score reductions and patch completeness; triggers self-correction loops. |
@@ -86,7 +86,7 @@ In the left sidebar control plane:
 
 ### Step 4: Run the Audit & Monitor Live Telemetry
 - Click **`⚡ Run DevSecOps Audit & Autonomous Patch`**.
-- Watch the 6 sub-agents execute sequentially with timestamped telemetry logs showing scope decomposition, AST heuristics, live CVE citations, and adversarial stress-testing.
+- Watch the 6 sub-agents execute with concurrent threat intelligence and timestamped telemetry logs showing scope decomposition, AST heuristics, live CVE citations, and adversarial stress-testing.
 
 ### Step 5: Explore the 9 High-Density War-Room Tabs
 1. **Diff & Patch:** High-contrast side-by-side original vs. patched code comparison with unified Git diff.
@@ -183,7 +183,7 @@ Add this step to your `.github/workflows/security.yml` to automatically upload t
 
 ## 🧪 Running the Test Suite
 
-Run the full automated unit and integration test suite:
+Run the full automated unit and integration test suite (38 passing tests):
 ```bash
 pytest tests/ -v
 ```
@@ -199,10 +199,11 @@ python -m py_compile agents.py tools.py app.py
 
 - **Principle of Least Privilege**: Containers execute under an unprivileged `appuser` (UID 10001).
 - **High-Entropy Secret Scanning**: Mathematical entropy detection ($H(X)$) flags exposed credentials in code and configurations.
-- **AST Static Analysis Across 14 CWEs**: Covers SQLi (CWE-89), OS Command Injection (CWE-78), SSRF (CWE-918), Path Traversal (CWE-22), Insecure Deserialization (CWE-502), Eval (CWE-95), Weak Crypto (CWE-327), Temp Files (CWE-377), Weak PRNG (CWE-338), Insecure Public Debug (CWE-1327), Disabled SSL Verification (CWE-295), Reflected XSS/SSTI (CWE-79), XML External Entity XXE (CWE-611), and Hardcoded Secrets (CWE-798).
+- **AST Static Analysis with Dataflow Taint Tracking Across 15 CWEs**: Covers SQLi (CWE-89), OS Command Injection (CWE-78), SSRF (CWE-918), Path Traversal (CWE-22), Insecure Deserialization (CWE-502), Eval (CWE-95), Weak Crypto (CWE-327), Insecure Cookies (CWE-614/CWE-1004), Temp Files (CWE-377), Weak PRNG (CWE-338), Insecure Public Debug (CWE-1327), Disabled SSL Verification (CWE-295), Reflected XSS/SSTI (CWE-79), XML External Entity XXE (CWE-611), and Hardcoded Secrets (CWE-798).
 - **Cloud & Infrastructure Scanning**: Evaluates Kubernetes Pod security contexts (CWE-269), Docker root execution (CWE-250), and Terraform open ingress rules (CWE-284).
 - **OASIS SARIF v2.1.0 Standard**: Export structured findings for direct GitHub Security and GitLab CI/CD SAST integration.
 - **Closed-Loop Self-Correction**: Red-team adversarial exploit testing forces automated patch regeneration if bypasses exist.
+- **Concurrent Fleet Orchestration**: High-throughput thread-safe parallel intelligence gathering.
 - **Deterministic Schemas**: All agent handoffs use strict Pydantic v2 models.
 
 ---

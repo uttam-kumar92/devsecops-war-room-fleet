@@ -705,20 +705,19 @@ if run_audit_clicked:
                 progress_bar.progress(98, text="VerifierGate: Evaluating CVSS remediation & quality score...")
 
         try:
-            with st.spinner("Autonomous DevSecOps War-Room executing STRIDE modeling & auto-patching..."):
-                result = agents.run_fleet(
-                    target_input=target_code,
-                    api_key=active_key,
-                    model_name=model_name,
-                    thinking_budget=thinking_budget,
-                    use_search_grounding=use_grounding,
-                    status_callback=ui_status_callback,
-                    max_revisions=max_revisions
-                )
-                st.session_state["secops_result"] = result
-                st.session_state["live_logs_history"] = live_logs
-                progress_bar.progress(100, text="Threat Model & Code Remediation Complete!")
-                st.success("Security Audit & Autonomous Remediation Complete!")
+            result = agents.run_fleet(
+                target_input=target_code,
+                api_key=active_key,
+                model_name=model_name,
+                thinking_budget=thinking_budget,
+                use_search_grounding=use_grounding,
+                status_callback=ui_status_callback,
+                max_revisions=max_revisions
+            )
+            st.session_state["secops_result"] = result
+            st.session_state["live_logs_history"] = live_logs
+            progress_bar.progress(100, text="Threat Model & Code Remediation Complete!")
+            st.success("Security Audit & Autonomous Remediation Complete!")
         except Exception as e:
             st.error(f"Execution Error: {str(e)}")
 

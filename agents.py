@@ -927,17 +927,14 @@ def run_fleet(
     # Phase 1: Security Audit Planning & Scope Decomposition
     plan = planner.run(target_input, log_cb=internal_log)
 
-    # Phase 2 & Phase 3: Live Vulnerability Intelligence & Static Analysis in Parallel
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as phase_executor:
-        future_scout = phase_executor.submit(scout.run, target_input, plan, internal_log)
-        future_metrics = phase_executor.submit(metrics_agent.run, target_input, internal_log)
-
-        scout_output = future_scout.result()
-        metrics_output = future_metrics.result()
-
+    # Phase 2: Live Vulnerability Intelligence & CVE Grounding
+    scout_output = scout.run(target_input, plan, log_cb=internal_log)
     raw_dossier = scout_output.get("dossier", "")
     citations = scout_output.get("citations", [])
     search_queries = scout_output.get("search_queries", [])
+
+    # Phase 3: Static Analysis & Secret Entropy Scanning
+    metrics_output = metrics_agent.run(target_input, log_cb=internal_log)
 
     # Phase 4: Threat Modeling, Auto-Patching & Self-Correction Verification Loop
     revision_count = 0

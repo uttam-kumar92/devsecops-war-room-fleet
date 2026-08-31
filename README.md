@@ -120,8 +120,8 @@ cp hardened_remediation.py src/app.py
 ### 2. Clone and Setup Environment
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/enterprise-agent-fleet.git
-cd enterprise-agent-fleet
+git clone https://github.com/uttam-kumar92/devsecops-war-room-fleet.git
+cd devsecops-war-room-fleet
 
 # Create and activate virtual environment
 python -m venv venv
@@ -183,7 +183,7 @@ Add this step to your `.github/workflows/security.yml` to automatically upload t
 
 ## 🧪 Running the Test Suite
 
-Run the full automated unit and integration test suite (38 passing tests):
+Run the full automated unit and integration test suite (44 passing tests):
 ```bash
 pytest tests/ -v
 ```

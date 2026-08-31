@@ -1,0 +1,15 @@
+services:
+  agent-fleet:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: google_secops_fleet
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true

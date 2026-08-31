@@ -1,0 +1,36 @@
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Environment files and credentials
+.env
+.env.*
+*.key
+*.pem
+credentials.json
+
+# Git and IDE metadata
+.git/
+.gitignore
+.dockerignore
+.vscode/
+.idea/
+.agents/
+.claude/
+
+# Temporary data and logs
+*.log
+scratch/

@@ -7,7 +7,8 @@ import os
 import re
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 from google import genai
 from google.genai import types
@@ -46,7 +47,7 @@ def _prepare_target_input(target_input: str, max_chars: int = 30000) -> str:
     return target_input
 
 
-def _get_client(api_key: Optional[str] = None) -> genai.Client:
+def _get_client(api_key: str | None = None) -> genai.Client:
     """Helper to initialize the Google GenAI client."""
     key = api_key or os.environ.get("GEMINI_API_KEY")
     if not key or key == "YOUR_API_KEY_HERE":
@@ -61,7 +62,12 @@ def safe_extract_text(response: Any) -> str:
     try:
         if response and hasattr(response, "candidates") and response.candidates and len(response.candidates) > 0:
             candidate = response.candidates[0]
-            if candidate and hasattr(candidate, "content") and candidate.content and hasattr(candidate.content, "parts"):
+            if (
+                candidate
+                and hasattr(candidate, "content")
+                and candidate.content
+                and hasattr(candidate.content, "parts")
+            ):
                 text_parts = [p.text for p in candidate.content.parts if hasattr(p, "text") and p.text]
                 if text_parts:
                     return "".join(text_parts)
@@ -72,7 +78,7 @@ def safe_extract_text(response: Any) -> str:
     return ""
 
 
-def clean_and_parse_json(text: str) -> Dict[str, Any]:
+def clean_and_parse_json(text: str) -> dict[str, Any]:
     """
     Robustly extracts and parses JSON from LLM responses, handling markdown code fences,
     trailing commas, non-standard whitespace, single quotes, unescaped newlines, and progressive fallback parsing.
@@ -100,7 +106,7 @@ def clean_and_parse_json(text: str) -> Dict[str, Any]:
     first_brace = cleaned.find("{")
     last_brace = cleaned.rfind("}")
     if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-        candidate = cleaned[first_brace:last_brace + 1]
+        candidate = cleaned[first_brace : last_brace + 1]
         try:
             return json.loads(candidate, strict=False)
         except json.JSONDecodeError:
@@ -132,7 +138,7 @@ def clean_and_parse_json(text: str) -> Dict[str, Any]:
         pass
 
     # 7. Fallback regex extraction of key common fields to avoid catastrophic failure
-    fallback_dict: Dict[str, Any] = {}
+    fallback_dict: dict[str, Any] = {}
     passed_match = re.search(r'["\']passed["\']\s*:\s*(true|false|True|False)', cleaned)
     if passed_match:
         fallback_dict["passed"] = passed_match.group(1).lower() == "true"
@@ -149,7 +155,7 @@ def clean_and_parse_json(text: str) -> Dict[str, Any]:
     raise ValueError(f"Failed to parse structured JSON from text: {text[:200]}")
 
 
-def is_valid_source_code(content: str, lang: Optional[str] = None) -> bool:
+def is_valid_source_code(content: str, lang: str | None = None) -> bool:
     """
     Validates whether an extracted text block is actual runnable source code vs ASCII art, diagram, JSON, or text.
     """
@@ -171,31 +177,80 @@ def is_valid_source_code(content: str, lang: Optional[str] = None) -> bool:
 
     # Check for ASCII box borders like +----+ or |   |
     lines = clean_content.splitlines()
-    box_line_count = sum(1 for l in lines if re.match(r"^\s*[\+\|][-+=| ]+[\+\|]\s*$", l))
+    box_line_count = sum(1 for line in lines if re.match(r"^\s*[\+\|][-+=| ]+[\+\|]\s*$", line))
     if box_line_count >= 2:
         return False
 
     # Check for flowchart arrow patterns like ---> or ===> without code tokens
-    arrow_count = sum(1 for l in lines if "-->" in l or "==>" in l or "--->" in l)
+    arrow_count = sum(1 for line in lines if "-->" in line or "==>" in line or "--->" in line)
     if arrow_count >= 2 and not any(k in clean_content for k in ("def ", "import ", "FROM ", "class ")):
         return False
 
     # Positive code tokens
     code_signals = (
-        "import ", "from ", "def ", "class ", "@", "return ", "self.",
-        "FROM ", "RUN ", "COPY ", "WORKDIR ", "CMD ", "ENTRYPOINT ", "ENV ", "USER ", "EXPOSE ",
-        "apiVersion:", "kind:", "metadata:", "spec:", "containers:",
-        "resource ", "provider ", "variable ", "output ", "terraform {",
-        "#!/bin/bash", "#!/bin/sh", "function ", "const ", "let ", "var ",
-        "SELECT ", "INSERT ", "UPDATE ", "DELETE ", "CREATE TABLE",
-        "+ ", "- "  # Diff lines
+        "import ",
+        "from ",
+        "def ",
+        "class ",
+        "@",
+        "return ",
+        "self.",
+        "FROM ",
+        "RUN ",
+        "COPY ",
+        "WORKDIR ",
+        "CMD ",
+        "ENTRYPOINT ",
+        "ENV ",
+        "USER ",
+        "EXPOSE ",
+        "apiVersion:",
+        "kind:",
+        "metadata:",
+        "spec:",
+        "containers:",
+        "resource ",
+        "provider ",
+        "variable ",
+        "output ",
+        "terraform {",
+        "#!/bin/bash",
+        "#!/bin/sh",
+        "function ",
+        "const ",
+        "let ",
+        "var ",
+        "SELECT ",
+        "INSERT ",
+        "UPDATE ",
+        "DELETE ",
+        "CREATE TABLE",
+        "+ ",
+        "- ",  # Diff lines
     )
 
     if any(sig in clean_content for sig in code_signals):
         return True
 
     # If tagged with a known programming language tag and no heavy diagram traits
-    if clean_lang in ("python", "py", "dockerfile", "docker", "yaml", "yml", "terraform", "tf", "sh", "bash", "diff", "sql", "js", "ts", "go", "rust"):
+    if clean_lang in (
+        "python",
+        "py",
+        "dockerfile",
+        "docker",
+        "yaml",
+        "yml",
+        "terraform",
+        "tf",
+        "sh",
+        "bash",
+        "diff",
+        "sql",
+        "js",
+        "ts",
+        "go",
+        "rust",
+    ):
         return True
 
     return False
@@ -213,27 +268,33 @@ def extract_code_patch(report_markdown: str) -> str:
     sec4_match = re.search(
         r"(?:##\s*4[^\n]*|###\s*4[^\n]*|##\s*🛠️?[^\n]*Remediation[^\n]*|##\s*🛠️?[^\n]*Patch[^\n]*)\n(.*?)(?=\n##\s*[5-9]|\n#\s|\Z)",
         report_markdown,
-        re.DOTALL | re.IGNORECASE
+        re.DOTALL | re.IGNORECASE,
     )
     if sec4_match:
         sec4_text = sec4_match.group(1)
         pattern = r"```(?:(?P<lang>[a-zA-Z0-9_\-]+))?(?:\s+[^\n]*)?\s*\n(?P<code>.*?)```"
         matches = list(re.finditer(pattern, sec4_text, re.DOTALL))
-        valid_sec4 = [m.group("code").strip() for m in matches if is_valid_source_code(m.group("code").strip(), m.group("lang"))]
+        valid_sec4 = [
+            m.group("code").strip() for m in matches if is_valid_source_code(m.group("code").strip(), m.group("lang"))
+        ]
         if valid_sec4:
             return max(valid_sec4, key=len)
 
     # Strategy 2: Search entire markdown for explicitly tagged valid programming languages
     code_pattern = r"```(?P<lang>python|py|dockerfile|docker|yaml|yml|terraform|tf|sh|bash|diff|sql|js|ts|go|rust)(?:\s+[^\n]*)?\s*\n(?P<code>.*?)```"
     matches = list(re.finditer(code_pattern, report_markdown, re.DOTALL | re.IGNORECASE))
-    valid_tagged = [m.group("code").strip() for m in matches if is_valid_source_code(m.group("code").strip(), m.group("lang"))]
+    valid_tagged = [
+        m.group("code").strip() for m in matches if is_valid_source_code(m.group("code").strip(), m.group("lang"))
+    ]
     if valid_tagged:
         return max(valid_tagged, key=len)
 
     # Strategy 3: Any untagged block that passes code validation
     all_pattern = r"```(?:(?P<lang>[a-zA-Z0-9_\-]+))?(?:\s+[^\n]*)?\s*\n(?P<code>.*?)```"
     all_matches = list(re.finditer(all_pattern, report_markdown, re.DOTALL))
-    valid_all = [m.group("code").strip() for m in all_matches if is_valid_source_code(m.group("code").strip(), m.group("lang"))]
+    valid_all = [
+        m.group("code").strip() for m in all_matches if is_valid_source_code(m.group("code").strip(), m.group("lang"))
+    ]
     if valid_all:
         return max(valid_all, key=len)
 
@@ -241,7 +302,7 @@ def extract_code_patch(report_markdown: str) -> str:
     return report_markdown.strip()
 
 
-def extract_multi_file_patches(report_markdown: str) -> List[Dict[str, str]]:
+def extract_multi_file_patches(report_markdown: str) -> list[dict[str, str]]:
     """
     Extracts all valid code patches from report markdown, identifying filenames if present,
     while ignoring ASCII architecture diagrams, JSON telemetry, and markdown snippets.
@@ -249,7 +310,9 @@ def extract_multi_file_patches(report_markdown: str) -> List[Dict[str, str]]:
     if not report_markdown:
         return []
 
-    pattern = r"```(?:(?P<lang>[a-zA-Z0-9_\-]+))?(?:\s+(?:filename=|file=)?(?P<filename>[\w\-\.\/]+))?\s*\n(?P<code>.*?)```"
+    pattern = (
+        r"```(?:(?P<lang>[a-zA-Z0-9_\-]+))?(?:\s+(?:filename=|file=)?(?P<filename>[\w\-\.\/]+))?\s*\n(?P<code>.*?)```"
+    )
     matches = list(re.finditer(pattern, report_markdown, re.DOTALL))
     results = []
     seen_contents = set()
@@ -284,23 +347,19 @@ def extract_multi_file_patches(report_markdown: str) -> List[Dict[str, str]]:
             filename = custom_filename
         else:
             if lang == "python":
-                filename = "app.py" if len(results) == 0 else f"remediated_file_{len(results)+1}.py"
+                filename = "app.py" if len(results) == 0 else f"remediated_file_{len(results) + 1}.py"
             elif "docker" in lang:
                 filename = "Dockerfile"
             elif "yaml" in lang or "yml" in lang:
-                filename = "manifest.yaml" if len(results) == 0 else f"config_{len(results)+1}.yaml"
+                filename = "manifest.yaml" if len(results) == 0 else f"config_{len(results) + 1}.yaml"
             elif "terraform" in lang or "tf" in lang:
                 filename = "main.tf"
             elif "sh" in lang or "bash" in lang:
                 filename = "entrypoint.sh"
             else:
-                filename = f"patch_{len(results)+1}.{lang}"
+                filename = f"patch_{len(results) + 1}.{lang}"
 
-        results.append({
-            "filename": filename,
-            "language": lang,
-            "content": code
-        })
+        results.append({"filename": filename, "language": lang, "content": code})
 
     # Sort so the largest/longest code file is primary (index 0)
     results.sort(key=lambda x: len(x["content"]), reverse=True)
@@ -311,8 +370,8 @@ def _generate_with_retry(
     client: genai.Client,
     model_name: str,
     contents: Any,
-    config: Optional[types.GenerateContentConfig] = None,
-    retries: int = 2
+    config: types.GenerateContentConfig | None = None,
+    retries: int = 2,
 ) -> Any:
     """
     Robust generator with model fallbacks, safe config cloning without dict serialization bugs,
@@ -361,13 +420,20 @@ def _generate_with_retry(
 # Pydantic Schemas for DevSecOps & Threat Modeling
 # ============================================================================
 
+
 class STRIDEAssessment(BaseModel):
     spoofing: float = Field(default=5.0, ge=0.0, le=10.0, description="Spoofing threat severity (0 to 10)")
     tampering: float = Field(default=5.0, ge=0.0, le=10.0, description="Tampering threat severity (0 to 10)")
     repudiation: float = Field(default=5.0, ge=0.0, le=10.0, description="Repudiation threat severity (0 to 10)")
-    information_disclosure: float = Field(default=5.0, ge=0.0, le=10.0, description="Information Disclosure threat severity (0 to 10)")
-    denial_of_service: float = Field(default=5.0, ge=0.0, le=10.0, description="Denial of Service threat severity (0 to 10)")
-    elevation_of_privilege: float = Field(default=5.0, ge=0.0, le=10.0, description="Elevation of Privilege threat severity (0 to 10)")
+    information_disclosure: float = Field(
+        default=5.0, ge=0.0, le=10.0, description="Information Disclosure threat severity (0 to 10)"
+    )
+    denial_of_service: float = Field(
+        default=5.0, ge=0.0, le=10.0, description="Denial of Service threat severity (0 to 10)"
+    )
+    elevation_of_privilege: float = Field(
+        default=5.0, ge=0.0, le=10.0, description="Elevation of Privilege threat severity (0 to 10)"
+    )
 
 
 class PlanMilestone(BaseModel):
@@ -378,55 +444,61 @@ class PlanMilestone(BaseModel):
 
 class SecurityAuditPlan(BaseModel):
     target_scope: str = Field(description="Clear scope definition (Code, Architecture, Container, Config)")
-    threat_vectors: List[str] = Field(description="Top attack surfaces and vulnerability vectors to audit")
-    stride_focus: List[str] = Field(description="Primary STRIDE threat categories identified for deep dive")
-    milestones: List[PlanMilestone] = Field(description="Sequential multi-agent execution roadmap")
+    threat_vectors: list[str] = Field(description="Top attack surfaces and vulnerability vectors to audit")
+    stride_focus: list[str] = Field(description="Primary STRIDE threat categories identified for deep dive")
+    milestones: list[PlanMilestone] = Field(description="Sequential multi-agent execution roadmap")
 
 
 class RedTeamCritique(BaseModel):
-    attack_simulated: str = Field(default="Adversarial Payload Simulation", description="Description of the attack vector simulated against the patch")
-    bypass_possible: bool = Field(default=False, description="True if the patch or defense can be bypassed by an attacker")
-    fluff_detected: bool = Field(default=False, description="True if generic corporate buzzwords or unverified claims were detected")
-    unaddressed_risks: List[str] = Field(default_factory=list, description="Specific edge-case security risks remaining")
-    recommendations_for_patch: str = Field(default="Ensure defense-in-depth and strict input validation.", description="Exact technical instructions to harden the patch")
+    attack_simulated: str = Field(
+        default="Adversarial Payload Simulation",
+        description="Description of the attack vector simulated against the patch",
+    )
+    bypass_possible: bool = Field(
+        default=False, description="True if the patch or defense can be bypassed by an attacker"
+    )
+    fluff_detected: bool = Field(
+        default=False, description="True if generic corporate buzzwords or unverified claims were detected"
+    )
+    unaddressed_risks: list[str] = Field(
+        default_factory=list, description="Specific edge-case security risks remaining"
+    )
+    recommendations_for_patch: str = Field(
+        default="Ensure defense-in-depth and strict input validation.",
+        description="Exact technical instructions to harden the patch",
+    )
 
 
 class VerificationResult(BaseModel):
     passed: bool = Field(
         default=True,
-        description="True if the threat model is rigorous, CVSS ratings are accurate, and code patch is 100% remediated."
+        description="True if the threat model is rigorous, CVSS ratings are accurate, and code patch is 100% remediated.",
     )
     overall_security_score: int = Field(
-        default=9,
-        ge=1,
-        le=10,
-        description="Overall Quality and Security Score out of 10 (1 to 10)."
+        default=9, ge=1, le=10, description="Overall Quality and Security Score out of 10 (1 to 10)."
     )
     remediation_completeness_score: int = Field(
-        default=9,
-        ge=1,
-        le=10,
-        description="Patch Completeness and Actionability Score out of 10 (1 to 10)."
+        default=9, ge=1, le=10, description="Patch Completeness and Actionability Score out of 10 (1 to 10)."
     )
     estimated_cvss_score: float = Field(
         default=8.5,
         ge=0.0,
         le=10.0,
-        description="CVSS 3.1 Base Score for the identified vulnerabilities (0.0 to 10.0)."
+        description="CVSS 3.1 Base Score for the identified vulnerabilities (0.0 to 10.0).",
     )
     stride_scores: STRIDEAssessment = Field(
-        default_factory=STRIDEAssessment,
-        description="STRIDE Threat Vector severity scores (0 to 10)."
+        default_factory=STRIDEAssessment, description="STRIDE Threat Vector severity scores (0 to 10)."
     )
     feedback: str = Field(
         default="Security audit and patch meet enterprise DevSecOps standards.",
-        description="Constructive directives if passed=False, or summary of key security strengths if passed=True."
+        description="Constructive directives if passed=False, or summary of key security strengths if passed=True.",
     )
 
 
 # ============================================================================
 # Prompt Architecture & Guardrail Registry
 # ============================================================================
+
 
 class SecOpsPromptRegistry:
     """Centralized, version-controlled prompt registry for the DevSecOps Fleet."""
@@ -453,7 +525,7 @@ Return structured JSON according to the schema.
 """
 
     @staticmethod
-    def scout_grounding_prompt(safe_input: str, threat_vectors: List[str]) -> str:
+    def scout_grounding_prompt(safe_input: str, threat_vectors: list[str]) -> str:
         return f"""You are VulnerabilityScoutAgent, an Elite Threat Intelligence Researcher.
 Investigate known vulnerabilities, CVEs, OWASP classifications, and exploit methodologies for the following target:
 
@@ -484,7 +556,7 @@ WEB INTEL:
 """
 
     @staticmethod
-    def metrics_analysis_prompt(heuristics: Dict[str, Any], safe_input: str) -> str:
+    def metrics_analysis_prompt(heuristics: dict[str, Any], safe_input: str) -> str:
         return f"""You are RigorMetricsAgent, a Static Code Analysis & DevSecOps Engineer.
 Analyze the following static scan results for the target code:
 
@@ -507,8 +579,8 @@ Provide:
         safe_input: str,
         plan: SecurityAuditPlan,
         raw_dossier: str,
-        metrics_data: Dict[str, Any],
-        feedback_directives: str
+        metrics_data: dict[str, Any],
+        feedback_directives: str,
     ) -> str:
         return f"""You are ThreatModelAgent, a Principal Application Security Architect & DevSecOps Engineer.
 
@@ -524,7 +596,7 @@ THREAT INTELLIGENCE & CVE DOSSIER:
 {raw_dossier}
 
 STATIC SCAN & SECRETS METRICS:
-{metrics_data.get('analysis_summary', '')}
+{metrics_data.get("analysis_summary", "")}
 {feedback_directives}
 
 MANDATORY DIRECTIVES TO PRODUCE A 100% PRODUCTION-READY SECURITY AUDIT:
@@ -602,15 +674,19 @@ class SecOpsPlannerAgent:
         self.model_name = model_name
         self.thinking_budget = thinking_budget
 
-    def run(self, target_input: str, log_cb: Optional[Callable] = None) -> SecurityAuditPlan:
+    def run(self, target_input: str, log_cb: Callable | None = None) -> SecurityAuditPlan:
         if log_cb:
-            log_cb("SecOpsPlannerAgent", "thought", "Decomposing target code/architecture into STRIDE threat model & audit roadmap...")
+            log_cb(
+                "SecOpsPlannerAgent",
+                "thought",
+                "Decomposing target code/architecture into STRIDE threat model & audit roadmap...",
+            )
 
         safe_input = _prepare_target_input(target_input, max_chars=30000)
         prompt = SecOpsPromptRegistry.planner_prompt(safe_input)
 
         try:
-            config_kwargs: Dict[str, Any] = {
+            config_kwargs: dict[str, Any] = {
                 "response_mime_type": "application/json",
                 "response_schema": SecurityAuditPlan,
                 "temperature": 0.1,
@@ -623,7 +699,11 @@ class SecOpsPlannerAgent:
             response = _generate_with_retry(self.client, self.model_name, contents=prompt, config=config)
 
             if hasattr(response, "parsed") and response.parsed:
-                plan = response.parsed if isinstance(response.parsed, SecurityAuditPlan) else SecurityAuditPlan(**response.parsed)
+                plan = (
+                    response.parsed
+                    if isinstance(response.parsed, SecurityAuditPlan)
+                    else SecurityAuditPlan(**response.parsed)
+                )
             else:
                 plan = SecurityAuditPlan(**clean_and_parse_json(safe_extract_text(response)))
         except Exception as e:
@@ -633,20 +713,45 @@ class SecOpsPlannerAgent:
                 threat_vectors=[
                     "Unsanitized input handling & injection vectors (CWE-89 / CWE-78 / CWE-918)",
                     "Broken authentication, session management & credential leakage (CWE-798)",
-                    "Insecure container / infrastructure configuration & privilege escalation (CWE-250 / CWE-269)"
+                    "Insecure container / infrastructure configuration & privilege escalation (CWE-250 / CWE-269)",
                 ],
                 stride_focus=["Tampering", "Information Disclosure", "Elevation of Privilege"],
                 milestones=[
-                    PlanMilestone(phase="Threat Intelligence & CVE Grounding", description="Extract live CVEs, exploits, and security advisories", assigned_agent="VulnerabilityScoutAgent"),
-                    PlanMilestone(phase="Static Heuristics & Secret Entropy", description="Scan for high-entropy secrets and static CWE patterns", assigned_agent="RigorMetricsAgent"),
-                    PlanMilestone(phase="Threat Model & Auto-Patch Generation", description="Author full STRIDE whitepaper and generate unified git diffs", assigned_agent="ThreatModelAgent"),
-                    PlanMilestone(phase="Adversarial Red-Team Exploit Simulation", description="Simulate payload bypasses and verify patch robustness", assigned_agent="RedTeamExploitAuditor"),
-                    PlanMilestone(phase="DevSecOps Quality Gate", description="Verify CVSS mitigation and remediation completeness", assigned_agent="DevSecOpsVerificationGate")
-                ]
+                    PlanMilestone(
+                        phase="Threat Intelligence & CVE Grounding",
+                        description="Extract live CVEs, exploits, and security advisories",
+                        assigned_agent="VulnerabilityScoutAgent",
+                    ),
+                    PlanMilestone(
+                        phase="Static Heuristics & Secret Entropy",
+                        description="Scan for high-entropy secrets and static CWE patterns",
+                        assigned_agent="RigorMetricsAgent",
+                    ),
+                    PlanMilestone(
+                        phase="Threat Model & Auto-Patch Generation",
+                        description="Author full STRIDE whitepaper and generate unified git diffs",
+                        assigned_agent="ThreatModelAgent",
+                    ),
+                    PlanMilestone(
+                        phase="Adversarial Red-Team Exploit Simulation",
+                        description="Simulate payload bypasses and verify patch robustness",
+                        assigned_agent="RedTeamExploitAuditor",
+                    ),
+                    PlanMilestone(
+                        phase="DevSecOps Quality Gate",
+                        description="Verify CVSS mitigation and remediation completeness",
+                        assigned_agent="DevSecOpsVerificationGate",
+                    ),
+                ],
             )
 
         if log_cb:
-            log_cb("SecOpsPlannerAgent", "plan", f"Security Audit Plan generated with {len(plan.milestones)} milestones.", {"plan": plan.model_dump()})
+            log_cb(
+                "SecOpsPlannerAgent",
+                "plan",
+                f"Security Audit Plan generated with {len(plan.milestones)} milestones.",
+                {"plan": plan.model_dump()},
+            )
 
         return plan
 
@@ -662,9 +767,13 @@ class VulnerabilityScoutAgent:
         self.model_name = model_name
         self.use_search_grounding = use_search_grounding
 
-    def run(self, target_input: str, plan: SecurityAuditPlan, log_cb: Optional[Callable] = None) -> Dict[str, Any]:
+    def run(self, target_input: str, plan: SecurityAuditPlan, log_cb: Callable | None = None) -> dict[str, Any]:
         if log_cb:
-            log_cb("VulnerabilityScoutAgent", "thought", "Gathering live CVEs, zero-days & threat intelligence via Google Search Grounding & OSV.dev...")
+            log_cb(
+                "VulnerabilityScoutAgent",
+                "thought",
+                "Gathering live CVEs, zero-days & threat intelligence via Google Search Grounding & OSV.dev...",
+            )
 
         safe_input = _prepare_target_input(target_input, max_chars=30000)
         query_topic = plan.threat_vectors[0] if plan.threat_vectors else "DevSecOps vulnerability"
@@ -682,13 +791,17 @@ class VulnerabilityScoutAgent:
             except Exception:
                 web_intel = f"Live vulnerability intel indexed for: {query_topic}"
 
-        citations: List[Dict[str, str]] = []
-        search_queries: List[str] = []
+        citations: list[dict[str, str]] = []
+        search_queries: list[str] = []
         grounded_dossier = ""
 
         if self.use_search_grounding:
             if log_cb:
-                log_cb("VulnerabilityScoutAgent", "tool", "Querying real-time Google Search Grounding for known CVEs & NVD records...")
+                log_cb(
+                    "VulnerabilityScoutAgent",
+                    "tool",
+                    "Querying real-time Google Search Grounding for known CVEs & NVD records...",
+                )
 
             grounding_prompt = SecOpsPromptRegistry.scout_grounding_prompt(safe_input, plan.threat_vectors)
             try:
@@ -718,11 +831,9 @@ class VulnerabilityScoutAgent:
                             title = getattr(web_obj, "title", "Security Advisory") if web_obj else "Security Advisory"
                             if uri and uri not in seen_urls:
                                 seen_urls.add(uri)
-                                citations.append({
-                                    "title": title or "Security Advisory Reference",
-                                    "url": uri,
-                                    "snippet": ""
-                                })
+                                citations.append(
+                                    {"title": title or "Security Advisory Reference", "url": uri, "snippet": ""}
+                                )
             except Exception as e:
                 logger.warning(f"Search Grounding fallback: {e}")
                 if log_cb:
@@ -744,14 +855,10 @@ class VulnerabilityScoutAgent:
                 "VulnerabilityScoutAgent",
                 "success",
                 f"Threat Intelligence Dossier compiled ({len(citations)} verified security citations).",
-                {"citations": citations, "search_queries": search_queries}
+                {"citations": citations, "search_queries": search_queries},
             )
 
-        return {
-            "dossier": full_dossier,
-            "citations": citations,
-            "search_queries": search_queries
-        }
+        return {"dossier": full_dossier, "citations": citations, "search_queries": search_queries}
 
 
 # ============================================================================
@@ -764,9 +871,13 @@ class RigorMetricsAgent:
         self.client = client
         self.model_name = model_name
 
-    def run(self, target_input: str, log_cb: Optional[Callable] = None) -> Dict[str, Any]:
+    def run(self, target_input: str, log_cb: Callable | None = None) -> dict[str, Any]:
         if log_cb:
-            log_cb("RigorMetricsAgent", "thought", "Running static security heuristics, regex CWE scanner & Shannon entropy secrets detection...")
+            log_cb(
+                "RigorMetricsAgent",
+                "thought",
+                "Running static security heuristics, regex CWE scanner & Shannon entropy secrets detection...",
+            )
 
         heuristics = tools.run_static_security_heuristics(target_input)
 
@@ -776,7 +887,7 @@ class RigorMetricsAgent:
             log_cb(
                 "RigorMetricsAgent",
                 "tool",
-                f"Static Scan: {vuln_count} CWE flaws detected | {secret_count} high-entropy secrets flagged | Risk Score: {heuristics['static_risk_score']}/100"
+                f"Static Scan: {vuln_count} CWE flaws detected | {secret_count} high-entropy secrets flagged | Risk Score: {heuristics['static_risk_score']}/100",
             )
 
         safe_input = _prepare_target_input(target_input, max_chars=30000)
@@ -794,13 +905,10 @@ class RigorMetricsAgent:
                 "RigorMetricsAgent",
                 "success",
                 "Static Analysis & Secret Entropy Matrix generated.",
-                {"heuristics": heuristics, "analysis_summary": analysis_summary}
+                {"heuristics": heuristics, "analysis_summary": analysis_summary},
             )
 
-        return {
-            "heuristics": heuristics,
-            "analysis_summary": analysis_summary
-        }
+        return {"heuristics": heuristics, "analysis_summary": analysis_summary}
 
 
 # ============================================================================
@@ -819,22 +927,34 @@ class ThreatModelAgent:
         target_input: str,
         plan: SecurityAuditPlan,
         raw_dossier: str,
-        metrics_data: Dict[str, Any],
-        redteam_feedback: Optional[str] = None,
-        verification_feedback: Optional[str] = None,
-        log_cb: Optional[Callable] = None
+        metrics_data: dict[str, Any],
+        redteam_feedback: str | None = None,
+        verification_feedback: str | None = None,
+        log_cb: Callable | None = None,
     ) -> str:
         if log_cb:
             if redteam_feedback or verification_feedback:
-                log_cb("ThreatModelAgent", "thought", "Hardening threat model and regenerating code patch to resolve red-team bypasses...")
+                log_cb(
+                    "ThreatModelAgent",
+                    "thought",
+                    "Hardening threat model and regenerating code patch to resolve red-team bypasses...",
+                )
             else:
-                log_cb("ThreatModelAgent", "thought", f"Synthesizing STRIDE Threat Model & generating fully hardened code patch using {self.model_name}...")
+                log_cb(
+                    "ThreatModelAgent",
+                    "thought",
+                    f"Synthesizing STRIDE Threat Model & generating fully hardened code patch using {self.model_name}...",
+                )
 
         feedback_directives = ""
         if redteam_feedback:
-            feedback_directives += f"\n### RED-TEAM ADVERSARIAL AUDIT CRITIQUE (MUST BE RESOLVED):\n{redteam_feedback}\n"
+            feedback_directives += (
+                f"\n### RED-TEAM ADVERSARIAL AUDIT CRITIQUE (MUST BE RESOLVED):\n{redteam_feedback}\n"
+            )
         if verification_feedback:
-            feedback_directives += f"\n### QUALITY HARNESS REVISION DIRECTIVES (MUST BE MET):\n{verification_feedback}\n"
+            feedback_directives += (
+                f"\n### QUALITY HARNESS REVISION DIRECTIVES (MUST BE MET):\n{verification_feedback}\n"
+            )
 
         safe_input = _prepare_target_input(target_input, max_chars=30000)
         prompt = SecOpsPromptRegistry.threat_model_prompt(
@@ -842,10 +962,10 @@ class ThreatModelAgent:
             plan=plan,
             raw_dossier=raw_dossier,
             metrics_data=metrics_data,
-            feedback_directives=feedback_directives
+            feedback_directives=feedback_directives,
         )
 
-        config_kwargs: Dict[str, Any] = {"temperature": 0.1}
+        config_kwargs: dict[str, Any] = {"temperature": 0.1}
         if self.thinking_budget > 0 and ("3.7" in self.model_name or "thinking" in self.model_name):
             config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=self.thinking_budget)
 
@@ -855,7 +975,7 @@ class ThreatModelAgent:
             report = safe_extract_text(response)
         except Exception as e:
             logger.warning(f"ThreatModelAgent fallback: {e}")
-            report = f"""# 🛡️ Enterprise Threat Model & Security Audit Report
+            report = """# 🛡️ Enterprise Threat Model & Security Audit Report
 
 ## 1. Executive Summary & Posture Assessment
 A comprehensive security evaluation of the target asset identified critical vulnerabilities including dynamic input execution, potential privilege escalation, and credential exposure.
@@ -889,7 +1009,12 @@ def secure_execute(param: str) -> None:
 """
 
         if log_cb:
-            log_cb("ThreatModelAgent", "success", "Security Threat Model & Code Remediation Patch created.", {"report_length": len(report)})
+            log_cb(
+                "ThreatModelAgent",
+                "success",
+                "Security Threat Model & Code Remediation Patch created.",
+                {"report_length": len(report)},
+            )
 
         return report
 
@@ -904,9 +1029,15 @@ class RedTeamExploitAuditor:
         self.client = client
         self.model_name = model_name
 
-    def run(self, target_input: str, raw_dossier: str, draft_report: str, log_cb: Optional[Callable] = None) -> RedTeamCritique:
+    def run(
+        self, target_input: str, raw_dossier: str, draft_report: str, log_cb: Callable | None = None
+    ) -> RedTeamCritique:
         if log_cb:
-            log_cb("RedTeamExploitAuditor", "thought", "Simulating exploit payloads against proposed patch to detect potential bypasses...")
+            log_cb(
+                "RedTeamExploitAuditor",
+                "thought",
+                "Simulating exploit payloads against proposed patch to detect potential bypasses...",
+            )
 
         safe_input = _prepare_target_input(target_input, max_chars=30000)
         prompt = SecOpsPromptRegistry.red_team_prompt(safe_input, draft_report)
@@ -919,7 +1050,11 @@ class RedTeamExploitAuditor:
             )
             response = _generate_with_retry(self.client, self.model_name, contents=prompt, config=config)
             if hasattr(response, "parsed") and response.parsed:
-                result = response.parsed if isinstance(response.parsed, RedTeamCritique) else RedTeamCritique(**response.parsed)
+                result = (
+                    response.parsed
+                    if isinstance(response.parsed, RedTeamCritique)
+                    else RedTeamCritique(**response.parsed)
+                )
             else:
                 result = RedTeamCritique(**clean_and_parse_json(safe_extract_text(response)))
         except Exception as e:
@@ -929,7 +1064,7 @@ class RedTeamExploitAuditor:
                 bypass_possible=False,
                 fluff_detected=False,
                 unaddressed_risks=[],
-                recommendations_for_patch="Ensure strict type enforcement and comprehensive unit tests."
+                recommendations_for_patch="Ensure strict type enforcement and comprehensive unit tests.",
             )
 
         if log_cb:
@@ -937,7 +1072,7 @@ class RedTeamExploitAuditor:
                 "RedTeamExploitAuditor",
                 "verification",
                 f"Adversarial Exploit Simulation Complete | Bypass Possible: {result.bypass_possible} | Fluff: {result.fluff_detected}",
-                {"critique": result.model_dump()}
+                {"critique": result.model_dump()},
             )
 
         return result
@@ -953,9 +1088,15 @@ class DevSecOpsVerificationGate:
         self.client = client
         self.model_name = model_name
 
-    def run(self, target_input: str, raw_dossier: str, draft_report: str, log_cb: Optional[Callable] = None) -> VerificationResult:
+    def run(
+        self, target_input: str, raw_dossier: str, draft_report: str, log_cb: Callable | None = None
+    ) -> VerificationResult:
         if log_cb:
-            log_cb("DevSecOpsVerificationGate", "thought", "Evaluating remediation completeness, CVSS mitigation accuracy & production readiness...")
+            log_cb(
+                "DevSecOpsVerificationGate",
+                "thought",
+                "Evaluating remediation completeness, CVSS mitigation accuracy & production readiness...",
+            )
 
         safe_input = _prepare_target_input(target_input, max_chars=30000)
         prompt = SecOpsPromptRegistry.verification_prompt(safe_input, draft_report)
@@ -968,7 +1109,11 @@ class DevSecOpsVerificationGate:
             response = _generate_with_retry(self.client, self.model_name, contents=prompt, config=config)
 
             if hasattr(response, "parsed") and response.parsed:
-                result = response.parsed if isinstance(response.parsed, VerificationResult) else VerificationResult(**response.parsed)
+                result = (
+                    response.parsed
+                    if isinstance(response.parsed, VerificationResult)
+                    else VerificationResult(**response.parsed)
+                )
             else:
                 result = VerificationResult(**clean_and_parse_json(safe_extract_text(response)))
         except Exception as e:
@@ -984,9 +1129,9 @@ class DevSecOpsVerificationGate:
                     repudiation=6.0,
                     information_disclosure=9.0,
                     denial_of_service=7.0,
-                    elevation_of_privilege=8.5
+                    elevation_of_privilege=8.5,
                 ),
-                feedback="Threat model verified. Code remediation is comprehensive and production-ready."
+                feedback="Threat model verified. Code remediation is comprehensive and production-ready.",
             )
 
         if log_cb:
@@ -994,7 +1139,7 @@ class DevSecOpsVerificationGate:
                 "DevSecOpsVerificationGate",
                 "verification",
                 f"Gate Evaluation: Score {result.overall_security_score}/10 | Remediation: {result.remediation_completeness_score}/10 | CVSS: {result.estimated_cvss_score} | Passed: {result.passed}",
-                {"result": result.model_dump()}
+                {"result": result.model_dump()},
             )
 
         return result
@@ -1004,15 +1149,15 @@ class DevSecOpsVerificationGate:
 # Fleet Coordinator: Autonomous DevSecOps Orchestrator
 # ============================================================================
 def run_fleet(
-    target_input: Optional[str] = None,
-    api_key: Optional[str] = None,
+    target_input: str | None = None,
+    api_key: str | None = None,
     model_name: str = DEFAULT_MODEL,
     thinking_budget: int = 0,
     use_search_grounding: bool = True,
-    status_callback: Optional[Callable[[str, str, str, Optional[Dict[str, Any]]], None]] = None,
+    status_callback: Callable[[str, str, str, dict[str, Any] | None], None] | None = None,
     max_revisions: int = 2,
-    **kwargs: Any
-) -> Dict[str, Any]:
+    **kwargs: Any,
+) -> dict[str, Any]:
     """
     Coordinates the 6-agent DevSecOps War-Room fleet with closed-loop self-correction,
     concurrent threat intelligence & static analysis, real-time event telemetry, and automated code remediation.
@@ -1031,16 +1176,16 @@ def run_fleet(
     if len(target_input) > 30000:
         target_input = target_input[:30000] + "\n# [TRUNCATED FOR CONTEXT LIMITS]"
 
-    logs: List[Dict[str, Any]] = []
+    logs: list[dict[str, Any]] = []
     log_lock = threading.Lock()
 
-    def internal_log(agent: str, step_type: str, message: str, payload: Optional[Dict[str, Any]] = None):
+    def internal_log(agent: str, step_type: str, message: str, payload: dict[str, Any] | None = None):
         entry = {
             "agent": agent,
             "type": step_type,
             "message": message,
             "payload": payload,
-            "timestamp": time.strftime("%H:%M:%S")
+            "timestamp": time.strftime("%H:%M:%S"),
         }
         with log_lock:
             logs.append(entry)
@@ -1077,7 +1222,7 @@ def run_fleet(
             scout_output = {
                 "dossier": f"Threat intelligence indexed for vectors: {', '.join(plan.threat_vectors)}",
                 "citations": [],
-                "search_queries": []
+                "search_queries": [],
             }
 
         try:
@@ -1086,7 +1231,7 @@ def run_fleet(
             logger.warning(f"Concurrent RigorMetricsAgent exception handled: {metrics_err}")
             metrics_output = {
                 "heuristics": tools.run_static_security_heuristics(target_input),
-                "analysis_summary": "Static heuristics scan completed."
+                "analysis_summary": "Static heuristics scan completed.",
             }
 
     raw_dossier = scout_output.get("dossier", "")
@@ -1095,10 +1240,10 @@ def run_fleet(
 
     # Phase 4: Threat Modeling, Auto-Patching & Self-Correction Verification Loop
     revision_count = 0
-    verification_feedback: Optional[str] = None
-    redteam_critique: Optional[RedTeamCritique] = None
+    verification_feedback: str | None = None
+    redteam_critique: RedTeamCritique | None = None
     final_report = ""
-    verification_result: Optional[VerificationResult] = None
+    verification_result: VerificationResult | None = None
 
     while revision_count <= max_revisions:
         redteam_feedback_str = json.dumps(redteam_critique.model_dump()) if redteam_critique else None
@@ -1110,7 +1255,7 @@ def run_fleet(
             metrics_data=metrics_output,
             redteam_feedback=redteam_feedback_str,
             verification_feedback=verification_feedback,
-            log_cb=internal_log
+            log_cb=internal_log,
         )
         final_report = draft_report
 
@@ -1128,7 +1273,7 @@ def run_fleet(
                     bypass_possible=False,
                     fluff_detected=False,
                     unaddressed_risks=[],
-                    recommendations_for_patch="Defense verified."
+                    recommendations_for_patch="Defense verified.",
                 )
 
             try:
@@ -1140,14 +1285,14 @@ def run_fleet(
                     overall_security_score=9,
                     remediation_completeness_score=9,
                     estimated_cvss_score=8.5,
-                    feedback="Security patch verified."
+                    feedback="Security patch verified.",
                 )
 
         if verification_result.passed and not redteam_critique.bypass_possible:
             internal_log(
                 "Coordinator",
                 "success",
-                f"Security Audit & Patch verified on cycle {revision_count + 1} with Score {verification_result.overall_security_score}/10!"
+                f"Security Audit & Patch verified on cycle {revision_count + 1} with Score {verification_result.overall_security_score}/10!",
             )
             break
         else:
@@ -1157,13 +1302,13 @@ def run_fleet(
                 internal_log(
                     "Coordinator",
                     "warning",
-                    f"Self-correction loop triggered (Cycle {revision_count}/{max_revisions}). Directives: {verification_result.feedback}"
+                    f"Self-correction loop triggered (Cycle {revision_count}/{max_revisions}). Directives: {verification_result.feedback}",
                 )
             else:
                 internal_log(
                     "Coordinator",
                     "info",
-                    f"Reached max revision limit ({max_revisions}). Delivering verified security whitepaper and patch."
+                    f"Reached max revision limit ({max_revisions}). Delivering verified security whitepaper and patch.",
                 )
                 break
 

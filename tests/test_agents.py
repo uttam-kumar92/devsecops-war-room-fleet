@@ -1,7 +1,6 @@
-import os
-import json
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 import agents
 
@@ -19,11 +18,11 @@ def test_get_client_valid_key():
 
 def test_clean_and_parse_json():
     # 1. Clean markdown wrapped JSON
-    text1 = "```json\n{\"key\": \"val\"}\n```"
+    text1 = '```json\n{"key": "val"}\n```'
     assert agents.clean_and_parse_json(text1) == {"key": "val"}
 
     # 2. Text before and after JSON with trailing commas
-    text2 = "Here is the response: {\"items\": [1, 2, ], \"status\": True, } thank you!"
+    text2 = 'Here is the response: {"items": [1, 2, ], "status": True, } thank you!'
     res2 = agents.clean_and_parse_json(text2)
     assert res2["items"] == [1, 2]
     assert res2["status"] is True
@@ -35,7 +34,9 @@ def test_clean_and_parse_json():
     assert res3["passed"] is True
 
     # 4. Fallback regex extraction on broken JSON
-    text4 = "The result is: {\"passed\": true, \"overall_security_score\": 8, \"feedback\": \"Verified secure\", ... broken text"
+    text4 = (
+        'The result is: {"passed": true, "overall_security_score": 8, "feedback": "Verified secure", ... broken text'
+    )
     res4 = agents.clean_and_parse_json(text4)
     assert res4["passed"] is True
     assert res4["overall_security_score"] == 8
@@ -139,10 +140,7 @@ def test_vulnerability_scout_agent(mock_genai_client, monkeypatch):
 
     scout = agents.VulnerabilityScoutAgent(mock_genai_client, model_name="gemini-3.7-flash", use_search_grounding=True)
     plan = agents.SecurityAuditPlan(
-        target_scope="Flask API",
-        threat_vectors=["SQL Injection CWE-89"],
-        stride_focus=["Tampering"],
-        milestones=[]
+        target_scope="Flask API", threat_vectors=["SQL Injection CWE-89"], stride_focus=["Tampering"], milestones=[]
     )
     result = scout.run("cursor.execute(f'SELECT {user}')", plan)
     assert "dossier" in result
@@ -169,10 +167,7 @@ def test_rigor_metrics_agent(mock_genai_client):
 def test_threat_model_agent(mock_genai_client):
     threat_modeler = agents.ThreatModelAgent(mock_genai_client, model_name="gemini-3.7-flash", thinking_budget=1024)
     plan = agents.SecurityAuditPlan(
-        target_scope="Flask SQLi",
-        threat_vectors=["CWE-89"],
-        stride_focus=["Tampering"],
-        milestones=[]
+        target_scope="Flask SQLi", threat_vectors=["CWE-89"], stride_focus=["Tampering"], milestones=[]
     )
     metrics_data = {"analysis_summary": "Mock Static Scan"}
     report = threat_modeler.run(
@@ -181,7 +176,7 @@ def test_threat_model_agent(mock_genai_client):
         raw_dossier="Raw CVE dossier",
         metrics_data=metrics_data,
         redteam_feedback="Harden parameterization",
-        verification_feedback="Verify types"
+        verification_feedback="Verify types",
     )
     assert "Enterprise Threat Model" in report
 
@@ -225,7 +220,7 @@ def test_run_fleet_orchestrator(mock_genai_client, monkeypatch):
         thinking_budget=1024,
         use_search_grounding=True,
         status_callback=status_cb,
-        max_revisions=2
+        max_revisions=2,
     )
 
     assert "final_report" in fleet_output
@@ -261,10 +256,7 @@ def test_run_fleet_large_payload_guarding(mock_genai_client, monkeypatch):
     monkeypatch.setattr("tools.fetch_cve_threat_intel", lambda query: "Mock CVE Data")
 
     huge_code = "# Insecure code\n" + ("x = 1\n" * 10000)
-    output = agents.run_fleet(
-        target_input=huge_code,
-        api_key="valid_mock_key"
-    )
+    output = agents.run_fleet(target_input=huge_code, api_key="valid_mock_key")
     assert "final_report" in output
     assert len(output["target_input"]) <= 35000
     assert "multi_file_patches" in output
@@ -331,11 +323,7 @@ def test_concurrent_fleet_execution(mock_genai_client, monkeypatch):
     def status_cb(agent, step_type, message, payload=None):
         executed_agents.append(agent)
 
-    output = agents.run_fleet(
-        target_input="def vulnerable(): pass",
-        api_key="mock_key",
-        status_callback=status_cb
-    )
+    output = agents.run_fleet(target_input="def vulnerable(): pass", api_key="mock_key", status_callback=status_cb)
 
     assert "VulnerabilityScoutAgent" in executed_agents
     assert "RigorMetricsAgent" in executed_agents
@@ -354,15 +342,9 @@ def test_concurrent_thread_exception_isolation(mock_genai_client, monkeypatch):
 
     monkeypatch.setattr(agents.VulnerabilityScoutAgent, "run", failing_scout_run)
 
-    output = agents.run_fleet(
-        target_input="def test(): pass",
-        api_key="mock_key"
-    )
+    output = agents.run_fleet(target_input="def test(): pass", api_key="mock_key")
 
     # Fleet orchestrator should catch the thread error gracefully and continue
     assert "final_report" in output
     assert "plan" in output
     assert "verification" in output
-
-
-

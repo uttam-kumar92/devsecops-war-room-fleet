@@ -8,7 +8,7 @@ version = "2.4.0"
 description = "Autonomous Enterprise 6-Agent DevSecOps Fleet powered by google-genai and Streamlit"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 dependencies = [
     "google-genai>=0.1.1",
     "streamlit>=1.30.0",
@@ -49,3 +49,7 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 ignore_missing_imports = true
+
+[tool.setuptools]
+py-modules = ["agents", "app", "tools"]
+

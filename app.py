@@ -5,16 +5,14 @@ import os
 import time
 
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
-
 import agents
 import tools
+
+# Load environment variables
+load_dotenv()
 
 # Hot-reload agents and tools to ensure fresh bytecode and prevent stale in-memory module issues
 importlib.reload(agents)
@@ -28,12 +26,13 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
 def load_css() -> str:
     """Loads custom Vercel / Geist CSS stylesheet from assets/style.css with graceful fallback."""
     css_path = os.path.join(os.path.dirname(__file__), "assets", "style.css")
     if os.path.exists(css_path):
         try:
-            with open(css_path, "r", encoding="utf-8") as f:
+            with open(css_path, encoding="utf-8") as f:
                 return f"<style>\n{f.read()}\n</style>"
         except Exception:
             pass
@@ -62,7 +61,7 @@ with st.sidebar:
         "Gemini API Key",
         value=env_api_key if has_valid_env_key else "",
         type="password",
-        help="Enter your Gemini API key here or configure GEMINI_API_KEY in .env"
+        help="Enter your Gemini API key here or configure GEMINI_API_KEY in .env",
     )
 
     active_key = user_api_key.strip() if user_api_key.strip() else env_api_key
@@ -77,15 +76,22 @@ with st.sidebar:
     st.markdown("#### Engine Parameters")
     model_name = st.selectbox(
         "Gemini Frontier Model",
-        options=["gemini-3.5-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-latest"],
+        options=[
+            "gemini-3.5-flash",
+            "gemini-3.7-flash",
+            "gemini-3.6-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite",
+            "gemini-flash-latest",
+        ],
         index=0,
-        help="Gemini 3.5 & 3.7 Flash support structured schema outputs, reasoning budgets, and real-time Search Grounding."
+        help="Gemini 3.5 & 3.7 Flash support structured schema outputs, reasoning budgets, and real-time Search Grounding.",
     )
 
     use_grounding = st.toggle(
         "Live CVE & NVD Search Grounding",
         value=True,
-        help="Engages real-time Google Search Grounding for zero-day advisories and NVD CVE catalogs."
+        help="Engages real-time Google Search Grounding for zero-day advisories and NVD CVE catalogs.",
     )
 
     thinking_budget = st.slider(
@@ -94,7 +100,7 @@ with st.sidebar:
         max_value=4096,
         value=1024,
         step=512,
-        help="Allocates reasoning tokens for deep reflection before threat model & patch generation."
+        help="Allocates reasoning tokens for deep reflection before threat model & patch generation.",
     )
 
     max_revisions = st.slider(
@@ -102,13 +108,14 @@ with st.sidebar:
         min_value=1,
         max_value=3,
         value=2,
-        help="Max self-correction cycles if Red-Team discovers patch bypasses or Verifier fails quality gates."
+        help="Max self-correction cycles if Red-Team discovers patch bypasses or Verifier fails quality gates.",
     )
 
     st.divider()
 
     st.markdown("#### Agent Fleet Topology")
-    st.markdown("""
+    st.markdown(
+        """
     <div class="topology-card">
         <div class="topology-item"><span class="geist-dot-purple"></span><span><strong>SecOpsPlanner</strong>: STRIDE Scope</span></div>
         <div class="topology-item"><span class="geist-dot-blue"></span><span><strong>VulnScout</strong>: CVE & Grounding</span></div>
@@ -117,10 +124,14 @@ with st.sidebar:
         <div class="topology-item"><span class="geist-dot-red"></span><span><strong>RedTeam</strong>: Exploit Simulation</span></div>
         <div class="topology-item"><span class="geist-dot-green"></span><span><strong>VerifierGate</strong>: CVSS Quality</span></div>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
     st.divider()
-    if st.button("🔄 Reset War-Room Session", use_container_width=True, help="Clears current audit session and cached results"):
+    if st.button(
+        "🔄 Reset War-Room Session", use_container_width=True, help="Clears current audit session and cached results"
+    ):
         for k in ["secops_result", "live_logs_history"]:
             if k in st.session_state:
                 del st.session_state[k]
@@ -130,11 +141,14 @@ with st.sidebar:
 # ============================================================================
 # Main Header & Security Preset Scenarios
 # ============================================================================
-st.markdown('<div class="geist-pill"><span class="geist-dot"></span>ENGINE BUILD v2.5.0-ENTERPRISE &bull; GEMINI 3.7 CONCURRENT CORE</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="geist-pill"><span class="geist-dot"></span>ENGINE BUILD v2.5.0-ENTERPRISE &bull; GEMINI 3.7 CONCURRENT CORE</div>',
+    unsafe_allow_html=True,
+)
 st.markdown('<div class="hero-title">Enterprise DevSecOps Threat Modeling War-Room</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="hero-subtitle">Autonomous STRIDE threat modeling, live CVE intelligence, Python AST static analysis, adversarial Red-Team exploit simulation, and automated code remediation powered by <code>google-genai</code>.</div>',
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 # Interactive Information & Documentation Expander (ℹ️ How It Works & User Guide)
@@ -180,7 +194,7 @@ with st.expander("ℹ️ Complete Manual & Step-by-Step User Guide • Click to 
     ---
 
     ### 🏛️ Complete System Architecture & 6-Agent Breakdown
-    
+
     This platform implements a **closed-loop 6-Agent DevSecOps War-Room** that outperforms simple single-prompt AI wrappers by introducing adversarial verification, real-time threat intelligence, and deterministic Python AST static analysis:
 
     1. **`SecOpsPlannerAgent` (Architect & Scoping Strategist):** Decomposes target into structured STRIDE scopes.
@@ -209,14 +223,14 @@ def get_db():
 def login():
     username = request.json.get("username")
     password = request.json.get("password")
-    
+
     # Vulnerability 1: SQL Injection (CWE-89)
     query = f"SELECT id, role FROM users WHERE username = '{username}' AND password = '{password}'"
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(query)
     user = cursor.fetchone()
-    
+
     if user:
         return jsonify({"token": JWT_SECRET, "role": user[1]})
     return jsonify({"error": "Invalid credentials"}), 401
@@ -267,7 +281,7 @@ app = FastAPI()
 async def ingest_yaml(request: Request):
     raw_payload = await request.body()
     # Vulnerability 1: Insecure YAML Deserialization (CWE-502)
-    data = yaml.load(raw_payload) 
+    data = yaml.load(raw_payload)
     return {"status": "parsed", "data": data}
 
 @app.post("/eval_expression")
@@ -321,7 +335,7 @@ scenario_options = [
     "Dockerfile (Root & AWS Key)",
     "Data Pipeline (YAML, eval & Traversal)",
     "Kubernetes & Cloud (Privileged & Open Ingress)",
-    "File Upload / Custom"
+    "File Upload / Custom",
 ]
 
 if hasattr(st, "segmented_control"):
@@ -329,15 +343,11 @@ if hasattr(st, "segmented_control"):
         "Select Target Scenario",
         options=scenario_options,
         default="Flask Microservice (SQLi & RCE & SSRF)",
-        label_visibility="collapsed"
+        label_visibility="collapsed",
     )
 else:
     selected_tab = st.radio(
-        "Select Target Scenario",
-        options=scenario_options,
-        index=0,
-        horizontal=True,
-        label_visibility="collapsed"
+        "Select Target Scenario", options=scenario_options, index=0, horizontal=True, label_visibility="collapsed"
     )
 
 default_code = PRESET_FLASK
@@ -354,7 +364,7 @@ elif "Upload" in selected_tab:
 uploaded_file = st.file_uploader(
     "Upload Source Code / Dockerfile / Configuration:",
     type=["py", "dockerfile", "yaml", "yml", "json", "txt", "sh", "tf", "sql", "js", "ts"],
-    help="Upload Python scripts, Dockerfiles, Terraform configs, or Kubernetes manifests."
+    help="Upload Python scripts, Dockerfiles, Terraform configs, or Kubernetes manifests.",
 )
 
 if uploaded_file is not None:
@@ -373,11 +383,13 @@ target_code = st.text_area(
     value=default_code,
     height=240,
     help="Paste Python source code, Dockerfiles, or cloud deployment specifications.",
-    label_visibility="collapsed"
+    label_visibility="collapsed",
 )
 
 code_line_count = len(target_code.splitlines()) if target_code else 0
-st.caption(f"Payload: `{code_line_count}` lines • Language: `Python / AST / Config` • Verification: `Closed-Loop Multi-Agent`")
+st.caption(
+    f"Payload: `{code_line_count}` lines • Language: `Python / AST / Config` • Verification: `Closed-Loop Multi-Agent`"
+)
 
 run_audit_clicked = st.button("⚡ Run DevSecOps Audit & Autonomous Patch", type="primary", use_container_width=True)
 
@@ -389,7 +401,9 @@ if run_audit_clicked:
     if not target_code or not target_code.strip():
         st.warning("Please provide target source code or select a preset scenario.")
     elif not active_key or active_key == "YOUR_API_KEY_HERE":
-        st.error("Missing Gemini API Key. Please provide your API key in the sidebar or configure GEMINI_API_KEY in .env.")
+        st.error(
+            "Missing Gemini API Key. Please provide your API key in the sidebar or configure GEMINI_API_KEY in .env."
+        )
     else:
         status_container = st.container(border=True)
         with status_container:
@@ -414,20 +428,19 @@ if run_audit_clicked:
 
         live_logs = []
 
-        def ui_status_callback(agent: str, step_type: str, message: str, payload: Optional[dict] = None) -> None:
+        def ui_status_callback(agent: str, step_type: str, message: str, payload: dict | None = None) -> None:
             timestamp = time.strftime("%H:%M:%S")
-            live_logs.append({
-                "agent": agent,
-                "type": step_type,
-                "message": message,
-                "timestamp": timestamp
-            })
+            live_logs.append({"agent": agent, "type": step_type, "message": message, "timestamp": timestamp})
 
-            logs_html = "".join([
-                f'<div class="log-row"><span class="badge">{l["agent"]}</span> <span style="color:#666666; font-size:0.75rem;">[{l["timestamp"]}]</span> {html.escape(l["message"])}</div>'
-                for l in live_logs
-            ])
-            telemetry_log_placeholder.markdown(f'<div class="telemetry-terminal">{logs_html}</div>', unsafe_allow_html=True)
+            logs_html = "".join(
+                [
+                    f'<div class="log-row"><span class="badge">{log_item["agent"]}</span> <span style="color:#666666; font-size:0.75rem;">[{log_item["timestamp"]}]</span> {html.escape(log_item["message"])}</div>'
+                    for log_item in live_logs
+                ]
+            )
+            telemetry_log_placeholder.markdown(
+                f'<div class="telemetry-terminal">{logs_html}</div>', unsafe_allow_html=True
+            )
 
             if agent == "SecOpsPlannerAgent":
                 p_box.success("SecOpsPlanner\n(Active ✓)")
@@ -444,7 +457,9 @@ if run_audit_clicked:
                     progress_bar.progress(92, text="ThreatModeler: Resolving Red-Team bypasses & hardening patch...")
                 else:
                     t_box.success("ThreatModel\n(Active ✓)")
-                    progress_bar.progress(75, text="ThreatModeler: Generating hardened patch code & STRIDE whitepaper...")
+                    progress_bar.progress(
+                        75, text="ThreatModeler: Generating hardened patch code & STRIDE whitepaper..."
+                    )
             elif agent == "RedTeamExploitAuditor":
                 r_box.success("RedTeam\n(Active ✓)")
                 progress_bar.progress(88, text="RedTeam: Simulating exploit payloads & adversarial bypasses...")
@@ -460,7 +475,7 @@ if run_audit_clicked:
                 thinking_budget=thinking_budget,
                 use_search_grounding=use_grounding,
                 status_callback=ui_status_callback,
-                max_revisions=max_revisions
+                max_revisions=max_revisions,
             )
             # Ensure all telemetry agent boxes reflect completion on the main thread
             p_box.success("SecOpsPlanner\n(Active ✓)")
@@ -490,11 +505,15 @@ if result:
     logs_to_show = st.session_state.get("live_logs_history") or result.get("logs") or []
     if logs_to_show:
         with st.expander("📡 Autonomous Fleet Execution Audit Trail (Full Event Log)", expanded=False):
-            trail_html = "".join([
-                f'<div class="log-row"><span class="badge">{l.get("agent", "AGENT")}</span> <span style="color:#666666; font-size:0.75rem;">[{l.get("timestamp", "")}]</span> {html.escape(l.get("message", ""))}</div>'
-                for l in logs_to_show
-            ])
-            st.markdown(f'<div class="telemetry-terminal" style="max-height:360px;">{trail_html}</div>', unsafe_allow_html=True)
+            trail_html = "".join(
+                [
+                    f'<div class="log-row"><span class="badge">{log_item.get("agent", "AGENT")}</span> <span style="color:#666666; font-size:0.75rem;">[{log_item.get("timestamp", "")}]</span> {html.escape(log_item.get("message", ""))}</div>'
+                    for log_item in logs_to_show
+                ]
+            )
+            st.markdown(
+                f'<div class="telemetry-terminal" style="max-height:360px;">{trail_html}</div>', unsafe_allow_html=True
+            )
 
     # Executive KPI Bar (Vercel Style)
     v_data = result.get("verification", {})
@@ -510,32 +529,59 @@ if result:
 
     kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
     with kpi1:
-        score_class = "metric-val-success" if sec_score >= 8 else "metric-val-warn" if sec_score >= 5 else "metric-val-alert"
-        st.markdown(f'<div class="metric-card"><div class="metric-val {score_class}">{sec_score}/10</div><div class="metric-label">Security Score (ℹ️)</div></div>', unsafe_allow_html=True)
+        score_class = (
+            "metric-val-success" if sec_score >= 8 else "metric-val-warn" if sec_score >= 5 else "metric-val-alert"
+        )
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-val {score_class}">{sec_score}/10</div><div class="metric-label">Security Score (ℹ️)</div></div>',
+            unsafe_allow_html=True,
+        )
     with kpi2:
-        cvss_class = "metric-val-alert" if cvss_score >= 7.0 else "metric-val-warn" if cvss_score >= 4.0 else "metric-val-success"
-        st.markdown(f'<div class="metric-card"><div class="metric-val {cvss_class}">{cvss_score}</div><div class="metric-label">CVSS 3.1 Base (ℹ️)</div></div>', unsafe_allow_html=True)
+        cvss_class = (
+            "metric-val-alert"
+            if cvss_score >= 7.0
+            else "metric-val-warn"
+            if cvss_score >= 4.0
+            else "metric-val-success"
+        )
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-val {cvss_class}">{cvss_score}</div><div class="metric-label">CVSS 3.1 Base (ℹ️)</div></div>',
+            unsafe_allow_html=True,
+        )
     with kpi3:
-        st.markdown(f'<div class="metric-card"><div class="metric-val metric-val-success">{patch_score}/10</div><div class="metric-label">Patch Quality (ℹ️)</div></div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-val metric-val-success">{patch_score}/10</div><div class="metric-label">Patch Quality (ℹ️)</div></div>',
+            unsafe_allow_html=True,
+        )
     with kpi4:
-        st.markdown(f'<div class="metric-card"><div class="metric-val">{vuln_count} Flaws | {secret_count} Keys</div><div class="metric-label">AST Flaws & Keys</div></div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-val">{vuln_count} Flaws | {secret_count} Keys</div><div class="metric-label">AST Flaws & Keys</div></div>',
+            unsafe_allow_html=True,
+        )
     with kpi5:
-        st.markdown(f'<div class="metric-card"><div class="metric-val">{revisions}</div><div class="metric-label">Adversarial Loops</div></div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-val">{revisions}</div><div class="metric-label">Adversarial Loops</div></div>',
+            unsafe_allow_html=True,
+        )
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     # High-Density War-Room Tabs
-    tab_diff, tab_report, tab_analytics, tab_static, tab_grounding, tab_redteam, tab_sarif, tab_manual, tab_logs = st.tabs([
-        "Diff & Patch",
-        "STRIDE Whitepaper",
-        "Radar & CVSS",
-        "AST & Secrets",
-        "CVE Grounding",
-        "Red-Team Audit",
-        "SARIF & CI/CD",
-        "Field Manual (ℹ️)",
-        "Telemetry"
-    ])
+    tab_diff, tab_report, tab_analytics, tab_static, tab_grounding, tab_redteam, tab_sarif, tab_manual, tab_logs = (
+        st.tabs(
+            [
+                "Diff & Patch",
+                "STRIDE Whitepaper",
+                "Radar & CVSS",
+                "AST & Secrets",
+                "CVE Grounding",
+                "Red-Team Audit",
+                "SARIF & CI/CD",
+                "Field Manual (ℹ️)",
+                "Telemetry",
+            ]
+        )
+    )
 
     # TAB 1: Visual Side-by-Side Patch & Git Diff
     with tab_diff:
@@ -548,7 +594,7 @@ if result:
                 "Diff View Layout:",
                 options=["Side-by-Side (Split)", "Stacked (Mobile / Full-Width)"],
                 horizontal=True,
-                label_visibility="collapsed"
+                label_visibility="collapsed",
             )
 
         patch_text = str(result.get("extracted_patch") or result.get("final_report") or "")
@@ -565,7 +611,7 @@ if result:
                 "Select File Artifact to Inspect:",
                 options=list(range(len(multi_patches))),
                 format_func=lambda i: f"📄 {multi_patches[i]['filename']} ({multi_patches[i]['language']})",
-                label_visibility="visible"
+                label_visibility="visible",
             )
             selected_file_patch = multi_patches[selected_patch_idx]
             patch_text = selected_file_patch["content"]
@@ -581,27 +627,40 @@ if result:
                 target_filename = "manifest.yaml"
 
         diff_stats = result.get("diff_stats") or tools.generate_diff_stats(orig_code, patch_text)
-        st.markdown(f"""
+        st.markdown(
+            f"""
         <div class="diff-stat-container">
-            <span class="diff-stat-badge diff-stat-added">+{diff_stats.get('lines_added', 0)} Lines Added</span>
-            <span class="diff-stat-badge diff-stat-deleted">-{diff_stats.get('lines_deleted', 0)} Lines Removed</span>
-            <span class="diff-stat-badge diff-stat-mod">⚡ {diff_stats.get('total_modifications', 0)} Modifications</span>
-            <span class="diff-stat-badge diff-stat-neutral">📊 {diff_stats.get('original_line_count', 0)} → {diff_stats.get('patched_line_count', 0)} Lines</span>
+            <span class="diff-stat-badge diff-stat-added">+{diff_stats.get("lines_added", 0)} Lines Added</span>
+            <span class="diff-stat-badge diff-stat-deleted">-{diff_stats.get("lines_deleted", 0)} Lines Removed</span>
+            <span class="diff-stat-badge diff-stat-mod">⚡ {diff_stats.get("total_modifications", 0)} Modifications</span>
+            <span class="diff-stat-badge diff-stat-neutral">📊 {diff_stats.get("original_line_count", 0)} → {diff_stats.get("patched_line_count", 0)} Lines</span>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
         if diff_layout == "Side-by-Side (Split)":
             col_orig, col_patched = st.columns(2)
             with col_orig:
-                st.markdown('<div class="diff-header diff-vuln-header">ORIGINAL VULNERABLE TARGET</div>', unsafe_allow_html=True)
+                st.markdown(
+                    '<div class="diff-header diff-vuln-header">ORIGINAL VULNERABLE TARGET</div>', unsafe_allow_html=True
+                )
                 st.code(orig_code, language=code_lang)
             with col_patched:
-                st.markdown('<div class="diff-header diff-patch-header">AUTONOMOUS HARDENED PATCH (VERIFIED)</div>', unsafe_allow_html=True)
+                st.markdown(
+                    '<div class="diff-header diff-patch-header">AUTONOMOUS HARDENED PATCH (VERIFIED)</div>',
+                    unsafe_allow_html=True,
+                )
                 st.code(patch_text, language=code_lang)
         else:
-            st.markdown('<div class="diff-header diff-vuln-header">ORIGINAL VULNERABLE TARGET</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="diff-header diff-vuln-header">ORIGINAL VULNERABLE TARGET</div>', unsafe_allow_html=True
+            )
             st.code(orig_code, language=code_lang)
-            st.markdown('<div class="diff-header diff-patch-header">AUTONOMOUS HARDENED PATCH (VERIFIED)</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="diff-header diff-patch-header">AUTONOMOUS HARDENED PATCH (VERIFIED)</div>',
+                unsafe_allow_html=True,
+            )
             st.code(patch_text, language=code_lang)
 
         st.markdown("#### Unified Git Patch Diff (`git apply security_patch.diff`):")
@@ -614,7 +673,7 @@ if result:
                 data=patch_text,
                 file_name=target_filename,
                 mime="text/plain",
-                use_container_width=True
+                use_container_width=True,
             )
         with d_col2:
             st.download_button(
@@ -622,7 +681,7 @@ if result:
                 data=unified_diff_text,
                 file_name="security_patch.diff",
                 mime="text/x-diff",
-                use_container_width=True
+                use_container_width=True,
             )
         with d_col3:
             st.download_button(
@@ -630,7 +689,7 @@ if result:
                 data=result.get("final_report", ""),
                 file_name="Enterprise_Threat_Model_Report.md",
                 mime="text/markdown",
-                use_container_width=True
+                use_container_width=True,
             )
 
     # TAB 2: Threat Model Report
@@ -643,7 +702,7 @@ if result:
             data=result.get("final_report", ""),
             file_name="Enterprise_Threat_Model_Report.md",
             mime="text/markdown",
-            use_container_width=True
+            use_container_width=True,
         )
 
     # TAB 3: STRIDE & CVSS Analytics
@@ -652,9 +711,7 @@ if result:
         stride_data = v_data.get("stride_scores", {})
 
         figs = tools.generate_security_dashboard_figures(
-            stride_scores=stride_data,
-            cvss_score=cvss_score,
-            heuristic_metrics=heuristics
+            stride_scores=stride_data, cvss_score=cvss_score, heuristic_metrics=heuristics
         )
 
         col_a1, col_a2 = st.columns(2)
@@ -687,7 +744,9 @@ if result:
             st.markdown(f"##### High-Entropy Leaked Secrets ({len(secrets)} items):")
             for s in secrets:
                 secret_label = s.get("type", "Secret Token")
-                st.warning(f"**[{secret_label}]** `{s.get('masked_token')}` | Entropy: `{s.get('entropy')} bits` | Risk: `{s.get('risk')}`")
+                st.warning(
+                    f"**[{secret_label}]** `{s.get('masked_token')}` | Entropy: `{s.get('entropy')} bits` | Risk: `{s.get('risk')}`"
+                )
 
         if not vulns and not secrets:
             st.success("No AST pattern violations or high-entropy secrets detected.")
@@ -695,24 +754,21 @@ if result:
         with st.expander("⚙️ Active Security Rules Engine & Extensible Taxonomy Explorer", expanded=False):
             active_rules = tools.rule_registry.get_non_python_rules()
             active_patterns = tools.rule_registry.get_known_secret_patterns()
-            st.markdown(f"**Loaded Rules:** `{len(active_rules)} configuration rules` | `{len(active_patterns)} high-precision secret patterns`")
+            st.markdown(
+                f"**Loaded Rules:** `{len(active_rules)} configuration rules` | `{len(active_patterns)} high-precision secret patterns`"
+            )
             st.caption("Configured via `rules/security_rules.json` with dynamic runtime evaluation.")
-            
+
             rule_tab1, rule_tab2 = st.tabs(["Infrastructure & Config Rules", "Cryptographic Secret Patterns"])
             with rule_tab1:
                 st.dataframe(
                     pd.DataFrame(active_rules)[["id", "name", "severity", "description"]],
                     use_container_width=True,
-                    hide_index=True
+                    hide_index=True,
                 )
             with rule_tab2:
                 df_pat = pd.DataFrame(active_patterns, columns=["Secret Type", "Regex Pattern", "Severity"])
-                st.dataframe(
-                    df_pat[["Secret Type", "Severity"]],
-                    use_container_width=True,
-                    hide_index=True
-                )
-
+                st.dataframe(df_pat[["Secret Type", "Severity"]], use_container_width=True, hide_index=True)
 
     # TAB 5: Live CVE Grounding
     with tab_grounding:
@@ -728,7 +784,7 @@ if result:
         if citations:
             st.markdown(f"##### Verified Security Advisories & Grounded References ({len(citations)} sources):")
             for idx, c in enumerate(citations):
-                st.markdown(f"{idx+1}. **[{c.get('title', 'Security Advisory')}]({c.get('url', '#')})**")
+                st.markdown(f"{idx + 1}. **[{c.get('title', 'Security Advisory')}]({c.get('url', '#')})**")
                 st.caption(f"URL: `{c.get('url')}`")
         else:
             st.info("Advisories correlated via live RSS and NVD knowledge index.")
@@ -741,7 +797,7 @@ if result:
         r_col1, r_col2 = st.columns(2)
         with r_col1:
             st.markdown(f"**Attack Vector Simulated:** `{rt.get('attack_simulated', 'N/A')}`")
-            bypass = rt.get('bypass_possible', False)
+            bypass = rt.get("bypass_possible", False)
             if bypass:
                 st.error("**Patch Bypass Possible:** True (Remediation Loop Triggered)")
             else:
@@ -773,13 +829,18 @@ if result:
         with sm_col2:
             st.metric("Rules Triggered", f"{rules_count} Rules")
         with sm_col3:
-            st.metric("Finding Annotations", f"{results_count} Locations", delta=f"{results_count} findings", delta_color="inverse")
+            st.metric(
+                "Finding Annotations",
+                f"{results_count} Locations",
+                delta=f"{results_count} findings",
+                delta_color="inverse",
+            )
 
         view_mode = st.radio(
             "SARIF Display Format:",
             ["💻 Full JSON Code View (Expanded & Ready to Copy)", "🌳 Interactive Tree Explorer"],
             horizontal=True,
-            label_visibility="collapsed"
+            label_visibility="collapsed",
         )
 
         if "Full JSON" in view_mode:
@@ -792,7 +853,7 @@ if result:
             data=json.dumps(sarif_data, indent=2),
             file_name="security_scan.sarif",
             mime="application/json",
-            use_container_width=True
+            use_container_width=True,
         )
 
     # TAB 8: Field Manual & Documentation (ℹ️)
@@ -860,7 +921,7 @@ if result:
 
             st.markdown(
                 f'<div class="{css_class}"><span class="badge">{agent}</span> <span style="color:#666666; font-size:0.75rem;">[{timestamp}]</span> {msg}</div>',
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
 
         st.download_button(
@@ -868,5 +929,5 @@ if result:
             data=json.dumps(result, indent=2),
             file_name=f"devsecops_session_{int(time.time())}.json",
             mime="application/json",
-            use_container_width=True
+            use_container_width=True,
         )

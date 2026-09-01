@@ -1,7 +1,5 @@
-import json
 import threading
 from unittest.mock import MagicMock, patch
-import pytest
 
 import tools
 
@@ -84,16 +82,16 @@ app.run(host="0.0.0.0", debug=True)
     vulns = heuristics["vulnerabilities"]
     rule_ids = [v["rule_id"] for v in vulns]
 
-    assert "CWE-502" in rule_ids   # Deserialization
-    assert "CWE-95" in rule_ids    # Eval
-    assert "CWE-918" in rule_ids   # SSRF
-    assert "CWE-22" in rule_ids    # Path Traversal
-    assert "CWE-377" in rule_ids   # mktemp
-    assert "CWE-338" in rule_ids   # Weak PRNG
+    assert "CWE-502" in rule_ids  # Deserialization
+    assert "CWE-95" in rule_ids  # Eval
+    assert "CWE-918" in rule_ids  # SSRF
+    assert "CWE-22" in rule_ids  # Path Traversal
+    assert "CWE-377" in rule_ids  # mktemp
+    assert "CWE-338" in rule_ids  # Weak PRNG
     assert "CWE-1327" in rule_ids  # Insecure public debug binding
-    assert "CWE-295" in rule_ids   # Disabled SSL verification (verify=False)
-    assert "CWE-611" in rule_ids   # XXE
-    assert "CWE-79" in rule_ids    # Reflected XSS / SSTI
+    assert "CWE-295" in rule_ids  # Disabled SSL verification (verify=False)
+    assert "CWE-611" in rule_ids  # XXE
+    assert "CWE-79" in rule_ids  # Reflected XSS / SSTI
 
 
 def test_run_static_security_cloud_and_k8s_rules():
@@ -143,12 +141,24 @@ def test_generate_unified_diff():
 def test_generate_sarif_report():
     heuristics = {
         "vulnerabilities": [
-            {"rule_id": "CWE-89", "name": "SQL Injection", "severity": "Critical", "description": "SQLi flaw", "line": 10, "snippet": "cursor.execute(q)"},
-            {"rule_id": "CWE-78", "name": "OS Injection", "severity": "High", "description": "Command injection", "line": 15, "snippet": "os.system(cmd)"}
+            {
+                "rule_id": "CWE-89",
+                "name": "SQL Injection",
+                "severity": "Critical",
+                "description": "SQLi flaw",
+                "line": 10,
+                "snippet": "cursor.execute(q)",
+            },
+            {
+                "rule_id": "CWE-78",
+                "name": "OS Injection",
+                "severity": "High",
+                "description": "Command injection",
+                "line": 15,
+                "snippet": "os.system(cmd)",
+            },
         ],
-        "secrets_found": [
-            {"masked_token": "AKIA****4321", "entropy": 4.5}
-        ]
+        "secrets_found": [{"masked_token": "AKIA****4321", "entropy": 4.5}],
     }
     sarif = tools.generate_sarif_report(heuristics, filename="vulnerable_app.py")
 
@@ -168,14 +178,11 @@ def test_generate_security_dashboard_figures():
         "Repudiation": 7.0,
         "Information Disclosure": 9.5,
         "Denial of Service": 6.0,
-        "Elevation of Privilege": 8.5
+        "Elevation of Privilege": 8.5,
     }
     heuristic_metrics = {
-        "vulnerabilities": [
-            {"severity": "Critical"},
-            {"severity": "High"}
-        ],
-        "secrets_found": [{"token": "test"}]
+        "vulnerabilities": [{"severity": "Critical"}, {"severity": "High"}],
+        "secrets_found": [{"token": "test"}],
     }
 
     figs = tools.generate_security_dashboard_figures(stride_scores, 8.5, heuristic_metrics)
@@ -234,7 +241,7 @@ def test_fetch_cve_threat_intel(mock_session_get):
     mock_response.status_code = 200
     mock_response.json.return_value = {
         "AbstractText": "SQL injection vulnerability CVE-2026-0001 allows remote code execution.",
-        "RelatedTopics": []
+        "RelatedTopics": [],
     }
     mock_session_get.return_value = mock_response
 
@@ -253,7 +260,7 @@ def test_fetch_osv_vulnerabilities(mock_session_post):
                 "summary": "Critical RCE in Flask",
                 "details": "A remote code execution vulnerability exists in Flask session parsing.",
                 "aliases": ["CVE-2026-9999"],
-                "modified": "2026-08-01T00:00:00Z"
+                "modified": "2026-08-01T00:00:00Z",
             }
         ]
     }
@@ -324,7 +331,7 @@ def test_fetch_osv_multi_ecosystem(mock_session_post):
                 "summary": "Prototype Pollution in lodash",
                 "details": "Prototype pollution vulnerability",
                 "aliases": ["CVE-2020-8203"],
-                "modified": "2026-01-01T00:00:00Z"
+                "modified": "2026-01-01T00:00:00Z",
             }
         ]
     }
@@ -403,13 +410,15 @@ def test_security_rule_registry_loading_and_fallback():
     assert any("AWS" in p[0] for p in patterns)
 
     # Custom rule registration
-    registry.register_non_python_rule({
-        "id": "CWE-CUSTOM",
-        "name": "Custom Enterprise Rule",
-        "pattern": r"custom_flaw",
-        "severity": "Critical",
-        "description": "Custom rule test."
-    })
+    registry.register_non_python_rule(
+        {
+            "id": "CWE-CUSTOM",
+            "name": "Custom Enterprise Rule",
+            "pattern": r"custom_flaw",
+            "severity": "Critical",
+            "description": "Custom rule test.",
+        }
+    )
     assert any(r["id"] == "CWE-CUSTOM" for r in registry.get_non_python_rules())
 
 
@@ -469,11 +478,8 @@ def test_generate_figures_with_dict_fallback():
         "repudiation": 6.0,
         "information_disclosure": 8.5,
         "denial_of_service": 7.0,
-        "elevation_of_privilege": 9.0
+        "elevation_of_privilege": 9.0,
     }
     figs = tools.generate_security_dashboard_figures(raw_dict_scores, cvss_score=9.1)
     assert figs["stride_radar"] is not None
     assert figs["cvss_gauge"] is not None
-
-
-

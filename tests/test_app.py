@@ -1,5 +1,5 @@
 import os
-import pytest
+
 from streamlit.testing.v1 import AppTest
 
 
@@ -23,8 +23,8 @@ def test_app_initial_render():
 
 def test_load_css_function():
     from app import load_css
+
     css_content = load_css()
     assert "<style>" in css_content
     assert "</style>" in css_content
     assert "Inter" in css_content or "stApp" in css_content
-

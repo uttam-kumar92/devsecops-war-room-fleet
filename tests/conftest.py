@@ -1,5 +1,6 @@
-from typing import Any, List
+from typing import Any
 from unittest.mock import MagicMock
+
 import pytest
 from pydantic import BaseModel
 
@@ -16,8 +17,8 @@ class MockGroundingChunk(BaseModel):
 
 
 class MockGroundingMetadata(BaseModel):
-    web_search_queries: List[str] = ["CVE SQL injection vulnerability patch"]
-    grounding_chunks: List[MockGroundingChunk] = [MockGroundingChunk()]
+    web_search_queries: list[str] = ["CVE SQL injection vulnerability patch"]
+    grounding_chunks: list[MockGroundingChunk] = [MockGroundingChunk()]
 
 
 class MockCandidate:
@@ -30,7 +31,11 @@ class MockCandidate:
 
 
 class MockResponse:
-    def __init__(self, text: str = "### 🛡️ Enterprise Threat Model & Security Audit Report\nMock remediation code patch content.", parsed: Any = None):
+    def __init__(
+        self,
+        text: str = "### 🛡️ Enterprise Threat Model & Security Audit Report\nMock remediation code patch content.",
+        parsed: Any = None,
+    ):
         self.text = text
         self.parsed = parsed
         self.candidates = [MockCandidate()]
@@ -44,7 +49,7 @@ def mock_genai_client():
 
     def mock_generate_content(model: str, contents: Any, config: Any = None):
         if config and hasattr(config, "response_schema"):
-            schema = getattr(config, "response_schema")
+            schema = config.response_schema
             if schema == agents.SecurityAuditPlan:
                 return MockResponse(
                     text="{}",
@@ -53,9 +58,13 @@ def mock_genai_client():
                         threat_vectors=["SQL Injection", "Command Injection"],
                         stride_focus=["Tampering", "Elevation of Privilege"],
                         milestones=[
-                            agents.PlanMilestone(phase="Discovery", description="Test Threat Intel", assigned_agent="VulnerabilityScoutAgent")
-                        ]
-                    )
+                            agents.PlanMilestone(
+                                phase="Discovery",
+                                description="Test Threat Intel",
+                                assigned_agent="VulnerabilityScoutAgent",
+                            )
+                        ],
+                    ),
                 )
             elif schema == agents.RedTeamCritique:
                 return MockResponse(
@@ -65,8 +74,8 @@ def mock_genai_client():
                         bypass_possible=False,
                         fluff_detected=False,
                         unaddressed_risks=[],
-                        recommendations_for_patch="Patch verified secure."
-                    )
+                        recommendations_for_patch="Patch verified secure.",
+                    ),
                 )
             elif schema == agents.VerificationResult:
                 return MockResponse(
@@ -82,13 +91,15 @@ def mock_genai_client():
                             repudiation=6.0,
                             information_disclosure=9.0,
                             denial_of_service=7.0,
-                            elevation_of_privilege=8.5
+                            elevation_of_privilege=8.5,
                         ),
-                        feedback="Remediation verified complete."
-                    )
+                        feedback="Remediation verified complete.",
+                    ),
                 )
 
-        return MockResponse(text="### 🛡️ Enterprise Threat Model & Security Audit Report\nMock remediation code patch content.")
+        return MockResponse(
+            text="### 🛡️ Enterprise Threat Model & Security Audit Report\nMock remediation code patch content."
+        )
 
     client.models.generate_content.side_effect = mock_generate_content
     return client

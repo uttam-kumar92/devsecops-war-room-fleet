@@ -54,7 +54,7 @@ graph TD
 | :--- | :--- | :--- |
 | **1. SecOpsPlannerAgent** | Threat Decomposition & Scope Architect | Generates structured Pydantic `SecurityAuditPlan` mapping STRIDE vectors and CWE attack surfaces. |
 | **2. VulnerabilityScoutAgent** | Real-Time Threat Intel & CVE Grounding | Native `types.GoogleSearch()` grounding querying NVD, OSV (PyPI, npm, Go, Rust, Java), and Google Security advisories. |
-| **3. RigorMetricsAgent** | Python AST Analysis & Shannon Secret Scanner | Native Python `ast.NodeVisitor` engine with **Dataflow Taint Tracking across 15 CWE categories** and Shannon entropy ($H(X)$) leaks. |
+| **3. RigorMetricsAgent** | Python AST Analysis & Shannon Secret Scanner | Native Python `ast.NodeVisitor` engine with **Dataflow Taint Tracking across 15 CWE categories** and Shannon entropy (H(X)) leaks. |
 | **4. ThreatModelAgent** | Principal Security Architect & Auto-Patcher | Synthesizes full STRIDE threat models, authoring **ready-to-deploy remediated code patches and unified Git diffs**. |
 | **5. RedTeamExploitAuditor** | Adversarial Hacker & Bypass Auditor | Simulates exploit payloads against proposed code patches to test for bypasses and secondary attack surfaces. |
 | **6. DevSecOpsVerificationGate** | Quality Gatekeeper & CVSS Validator | Rigorous Pydantic quality gate checking CVSS score reductions and patch completeness; triggers self-correction loops. |
@@ -92,7 +92,7 @@ In the left sidebar control plane:
 1. **Diff & Patch:** High-contrast side-by-side original vs. patched code comparison with unified Git diff.
 2. **STRIDE Whitepaper:** Full enterprise STRIDE threat assessment with root-cause analysis and CVSS 3.1 ratings.
 3. **Radar & CVSS:** Interactive Plotly STRIDE radar polygon, CVSS 3.1 base score gauge, and risk distribution charts.
-4. **AST & Secrets:** Line-by-line breakdown of detected CWE flaws and high-entropy secret tokens ($H(X)$).
+4. **AST & Secrets:** Line-by-line breakdown of detected CWE flaws and high-entropy secret tokens (H(X)).
 5. **CVE Grounding:** Live search queries and verified NVD/Google Security advisory URLs.
 6. **Red-Team Audit:** Adversarial exploit simulation results verifying patch robustness.
 7. **SARIF & CI/CD:** Schema-valid OASIS SARIF v2.1.0 JSON ready for pipeline ingestion.
@@ -198,7 +198,7 @@ python -m py_compile agents.py tools.py app.py
 ## 🛡️ Security & Enterprise Capabilities
 
 - **Principle of Least Privilege**: Containers execute under an unprivileged `appuser` (UID 10001).
-- **High-Entropy Secret Scanning**: Mathematical entropy detection ($H(X)$) flags exposed credentials in code and configurations.
+- **High-Entropy Secret Scanning**: Mathematical entropy detection (H(X)) flags exposed credentials in code and configurations.
 - **AST Static Analysis with Dataflow Taint Tracking Across 15 CWEs**: Covers SQLi (CWE-89), OS Command Injection (CWE-78), SSRF (CWE-918), Path Traversal (CWE-22), Insecure Deserialization (CWE-502), Eval (CWE-95), Weak Crypto (CWE-327), Insecure Cookies (CWE-614/CWE-1004), Temp Files (CWE-377), Weak PRNG (CWE-338), Insecure Public Debug (CWE-1327), Disabled SSL Verification (CWE-295), Reflected XSS/SSTI (CWE-79), XML External Entity XXE (CWE-611), and Hardcoded Secrets (CWE-798).
 - **Cloud & Infrastructure Scanning**: Evaluates Kubernetes Pod security contexts (CWE-269), Docker root execution (CWE-250), and Terraform open ingress rules (CWE-284).
 - **OASIS SARIF v2.1.0 Standard**: Export structured findings for direct GitHub Security and GitLab CI/CD SAST integration.

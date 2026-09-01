@@ -185,7 +185,7 @@ with st.expander("ℹ️ Complete Manual & Step-by-Step User Guide • Click to 
 
     1. **`SecOpsPlannerAgent` (Architect & Scoping Strategist):** Decomposes target into structured STRIDE scopes.
     2. **`VulnerabilityScoutAgent` (Threat Intel & Grounding):** Queries live CVE/NVD records via `types.GoogleSearch()`.
-    3. **`RigorMetricsAgent` (AST Static Scanner & Entropy Engine):** Evaluates 14 CWE flaw categories and Shannon entropy $H(X)$.
+    3. **`RigorMetricsAgent` (AST Static Scanner & Entropy Engine):** Evaluates 14 CWE flaw categories and Shannon entropy H(X).
     4. **`ThreatModelAgent` (Principal Security Architect & Autonomous Patcher):** Synthesizes STRIDE whitepapers and unified Git diffs.
     5. **`RedTeamExploitAuditor` (Adversarial Penetration Tester):** Simulates exploit payloads against candidate patches.
     6. **`DevSecOpsVerificationGate` (Automated Quality Gatekeeper):** Validates CVSS mitigation and triggers self-correction loops if bypasses exist.
